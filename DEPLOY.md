@@ -39,20 +39,26 @@ docker-compose up -d --build
 2. Adicione seu domínio personalizado
 3. O EasyPanel gerará automaticamente o certificado SSL via Let's Encrypt
 
-## Variáveis de Ambiente
+## ⚠️ IMPORTANTE: Variáveis de Ambiente
 
-Se precisar passar a `GEMINI_API_KEY` durante o build:
+A aplicação requer a `GEMINI_API_KEY` para funcionar. Você DEVE configurar isso no EasyPanel:
 
-1. No EasyPanel, vá em **Environment**
+### No EasyPanel:
+1. Vá em **Settings** → **Build Args** (ou **Environment Variables**)
 2. Adicione:
    ```
-   GEMINI_API_KEY=sua-chave-aqui
+   GEMINI_API_KEY=sua-chave-gemini-aqui
    ```
-3. Modifique o Dockerfile para usar ARG:
-   ```dockerfile
-   ARG GEMINI_API_KEY
-   ENV GEMINI_API_KEY=$GEMINI_API_KEY
-   ```
+3. Clique em **Rebuild** para aplicar
+
+### Via Docker Compose local:
+```bash
+# Crie um arquivo .env na raiz do projeto
+echo "GEMINI_API_KEY=sua-chave-aqui" > .env
+
+# Depois rode:
+docker-compose up -d --build
+```
 
 ## Verificando o Deploy
 

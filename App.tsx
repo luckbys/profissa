@@ -11,6 +11,8 @@ import NetworkStatus from './components/NetworkStatus';
 import NotificationCenter from './components/NotificationCenter';
 import DocumentHistory from './components/DocumentHistory';
 import AICoach from './components/AICoach';
+import LockScreen from './components/LockScreen';
+import { isAppLocked, unlockApp } from './services/authService';
 import {
   LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText,
   Plus, X, FilePlus, Bot
@@ -19,6 +21,19 @@ import {
 const App: React.FC = () => {
   const [currentView, setCurrentView] = React.useState<ViewState>('dashboard');
   const [isFabOpen, setIsFabOpen] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+
+  // Check Lock Screen on Mount
+  React.useEffect(() => {
+    if (isAppLocked()) {
+      setIsLocked(true);
+    }
+  }, []);
+
+  const handleUnlock = () => {
+    unlockApp();
+    setIsLocked(false);
+  };
 
   // Navigation State for FAB actions
   const [financeInitialTab, setFinanceInitialTab] = useState<'overview' | 'documents' | 'expenses'>('overview');
@@ -88,6 +103,11 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Lock Screen Block
+  if (isLocked) {
+    return <LockScreen onUnlock={handleUnlock} />;
   }
 
   const renderView = () => {

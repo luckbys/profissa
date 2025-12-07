@@ -1,7 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, Client, UserProfile } from '../types';
-import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, Image, X, Loader2, ShieldCheck, Download, AlertTriangle } from 'lucide-react';
+import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Download, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import { exportData, importData } from '../services/backupService';
+import { setPIN, removePIN, hasPIN, isAppLocked } from '../services/authService';
+import LockScreen from './LockScreen';
 
 interface ProfileProps {
   userProfile: UserProfile;
@@ -19,6 +21,32 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+
+  // Security States
+  const [isLockEnabled, setIsLockEnabled] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+
+  useEffect(() => {
+    setIsLockEnabled(hasPIN());
+  }, []);
+
+  const handleToggleLock = () => {
+    if (isLockEnabled) {
+      if (confirm('Tem certeza que deseja remover o bloqueio por PIN?')) {
+        removePIN();
+        setIsLockEnabled(false);
+      }
+    } else {
+      setShowPinSetup(true);
+    }
+  };
+
+  const handlePinSet = (pin: string) => {
+    setPIN(pin);
+    setIsLockEnabled(true);
+    setShowPinSetup(false);
+    alert('Senha definida com sucesso! O App será bloqueado ao reiniciar.');
+  };
 
   // KPIs Calculations
   const stats = useMemo(() => {
@@ -118,6 +146,16 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
 
   return (
     <div className="pb-24 space-y-6">
+      {/* Pin Setup Modal */}
+      {showPinSetup && (
+        <LockScreen
+          onUnlock={() => { }}
+          isSettingUp={true}
+          onPinSet={handlePinSet}
+          onCancelSetup={() => setShowPinSetup(false)}
+        />
+      )}
+
       <header className="flex justify-between items-center mb-2">
         <h1 className="text-2xl font-bold text-gray-800">Meu Perfil</h1>
         <button
@@ -190,6 +228,35 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
             </div>
           </div>
         )}
+      </div>
+
+      {/* SEGURANÇA OPÇÕES */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="text-brand-600" />
+          <h2 className="text-lg font-bold text-gray-800">Segurança</h2>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${isLockEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
+              {isLockEnabled ? <Lock size={20} /> : <Unlock size={20} />}
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-800">Bloqueio de Tela</h4>
+              <p className="text-xs text-gray-500">{isLockEnabled ? 'Ativado' : 'Proteger com PIN'}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleLock}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${isLockEnabled
+                ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                : 'bg-brand-600 text-white hover:bg-brand-700'
+              }`}
+          >
+            {isLockEnabled ? 'Desativar' : 'Ativar'}
+          </button>
+        </div>
       </div>
 
       {/* Company Branding Section */}
@@ -281,8 +348,8 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
       {/* SEGURANÇA E DADOS (BACKUP) */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
         <div className="flex items-center gap-2 mb-4">
-          <ShieldCheck className="text-brand-600" />
-          <h2 className="text-lg font-bold text-gray-800">Segurança e Dados</h2>
+          <Download className="text-brand-600" />
+          <h2 className="text-lg font-bold text-gray-800">Backup e Dados</h2>
         </div>
 
         <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 mb-4">

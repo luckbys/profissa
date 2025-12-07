@@ -11,22 +11,37 @@ import CreditsDisplay from './CreditsDisplay';
 import ServiceTemplateSelector from './ServiceTemplateSelector';
 import ExpenseForm from './ExpenseForm';
 import {
-  Send, Download, Trash2, CircleDollarSign, Loader2, Briefcase, X, ChevronDown, Wand2, AlertCircle, FileText
+  Send, Download, Trash2, CircleDollarSign, Loader2, Briefcase, X, ChevronDown, Wand2, AlertCircle, FileText, Tag
 } from 'lucide-react';
 
 interface FinanceProps {
   clients: Client[];
   userProfile?: UserProfile;
   onViewHistory?: () => void;
+  initialTab?: 'overview' | 'documents' | 'expenses';
+  initialType?: 'quote' | 'receipt';
 }
 
-const Finance: React.FC<FinanceProps> = ({ clients, userProfile, onViewHistory }) => {
+const Finance: React.FC<FinanceProps> = ({
+  clients,
+  userProfile,
+  onViewHistory,
+  initialTab = 'overview',
+  initialType = 'quote'
+}) => {
   // Tab State
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'expenses'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'expenses'>(initialTab);
 
   // Document State
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [type, setType] = useState<'quote' | 'receipt'>('quote');
+  const [type, setType] = useState<'quote' | 'receipt'>(initialType);
+
+  // Effect to update state if props change (re-navigation)
+  useEffect(() => {
+    setActiveTab(initialTab);
+    if (initialType) setType(initialType);
+  }, [initialTab, initialType]);
+
   const [items, setItems] = useState<any[]>([]); // Using any for simplicity in this huge file refactor
   const [newItemDesc, setNewItemDesc] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');

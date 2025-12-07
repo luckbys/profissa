@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ViewState, Client, Appointment } from './types';
 import { useLocalData } from './hooks/useLocalData';
 import { useNotifications } from './hooks/useNotifications';
@@ -10,10 +10,18 @@ import Profile from './components/Profile';
 import NetworkStatus from './components/NetworkStatus';
 import NotificationCenter from './components/NotificationCenter';
 import DocumentHistory from './components/DocumentHistory';
-import { LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText } from 'lucide-react';
+import {
+  LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText,
+  Plus, X, FilePlus
+} from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = React.useState<ViewState>('dashboard');
+  const [isFabOpen, setIsFabOpen] = useState(false);
+
+  // Navigation State for FAB actions
+  const [financeInitialTab, setFinanceInitialTab] = useState<'overview' | 'documents' | 'expenses'>('overview');
+  const [financeInitialType, setFinanceInitialType] = useState<'quote' | 'receipt'>('quote');
 
   const {
     clients,
@@ -53,6 +61,22 @@ const App: React.FC = () => {
     await toggleAppointmentStatus(id);
   };
 
+  const handleFabAction = (type: 'quote' | 'receipt') => {
+    setFinanceInitialTab('documents');
+    setFinanceInitialType(type);
+    setCurrentView('finance');
+    setIsFabOpen(false);
+  };
+
+  // Reset finance props when navigating manually
+  const handleNavigation = (view: ViewState) => {
+    if (view === 'finance') {
+      setFinanceInitialTab('overview'); // Default view
+    }
+    setCurrentView(view);
+    setIsFabOpen(false);
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -89,7 +113,15 @@ const App: React.FC = () => {
           />
         );
       case 'finance':
-        return <Finance clients={clients} userProfile={userProfile} onViewHistory={() => setCurrentView('history')} />;
+        return (
+          <Finance
+            clients={clients}
+            userProfile={userProfile}
+            onViewHistory={() => setCurrentView('history')}
+            initialTab={financeInitialTab}
+            initialType={financeInitialType}
+          />
+        );
       case 'profile':
         return (
           <Profile
@@ -132,10 +164,45 @@ const App: React.FC = () => {
         {renderView()}
       </main>
 
+      {/* FAB Overlay (Dimmed Background) */}
+      {isFabOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-30 animate-in fade-in duration-200"
+          onClick={() => setIsFabOpen(false)}
+        />
+      )}
+
+      {/* FAB Menu Items */}
+      <div className={`fixed bottom-28 left-0 right-0 flex justify-center items-end gap-6 z-50 transition-all duration-300 ${isFabOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+
+        {/* Quote Button */}
+        <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={() => handleFabAction('quote')}
+            className="w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-700 transition-colors"
+          >
+            <FilePlus size={24} />
+          </button>
+          <span className="text-white text-xs font-bold bg-gray-900/80 px-2 py-1 rounded-md">Orçamento</span>
+        </div>
+
+        {/* Receipt Button */}
+        <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={() => handleFabAction('receipt')}
+            className="w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-green-700 transition-colors"
+          >
+            <ReceiptText size={24} />
+          </button>
+          <span className="text-white text-xs font-bold bg-gray-900/80 px-2 py-1 rounded-md">Recibo</span>
+        </div>
+
+      </div>
+
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 flex justify-around py-3 px-2 pb-6 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <button
-          onClick={() => setCurrentView('dashboard')}
+          onClick={() => handleNavigation('dashboard')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'dashboard' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <LayoutDashboard size={24} strokeWidth={currentView === 'dashboard' ? 2.5 : 2} />
@@ -143,22 +210,23 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setCurrentView('clients')}
+          onClick={() => handleNavigation('clients')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'clients' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <Users size={24} strokeWidth={currentView === 'clients' ? 2.5 : 2} />
           <span className="text-[10px] font-medium">Clientes</span>
         </button>
 
+        {/* FAB Main Button */}
         <button
-          onClick={() => setCurrentView('finance')}
-          className={`relative -top-6 bg-brand-600 text-white p-4 rounded-full shadow-lg border-4 border-gray-50 hover:bg-brand-700 transition-transform hover:scale-105 ${currentView === 'finance' ? 'ring-2 ring-brand-200' : ''}`}
+          onClick={() => setIsFabOpen(!isFabOpen)}
+          className={`relative -top-6 text-white p-4 rounded-full shadow-lg border-4 border-gray-50 hover:scale-105 transition-all ${isFabOpen ? 'bg-gray-800 rotate-45' : 'bg-brand-600'}`}
         >
-          <ReceiptText size={28} />
+          <Plus size={28} />
         </button>
 
         <button
-          onClick={() => setCurrentView('calendar')}
+          onClick={() => handleNavigation('calendar')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'calendar' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <CalendarDays size={24} strokeWidth={currentView === 'calendar' ? 2.5 : 2} />
@@ -166,7 +234,7 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setCurrentView('profile')}
+          onClick={() => handleNavigation('profile')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'profile' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <UserCircle size={24} strokeWidth={currentView === 'profile' ? 2.5 : 2} />

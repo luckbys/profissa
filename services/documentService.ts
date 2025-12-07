@@ -6,7 +6,12 @@ const DOCUMENTS_KEY = 'gerente_bolso_documents';
 export const getDocuments = (): SavedDocument[] => {
     try {
         const data = localStorage.getItem(DOCUMENTS_KEY);
-        return data ? JSON.parse(data) : [];
+        const docs = data ? JSON.parse(data) : [];
+        // Migration: Ensure all docs have a status
+        return docs.map((d: any) => ({
+            ...d,
+            status: d.status || 'pending'
+        }));
     } catch {
         return [];
     }
@@ -31,6 +36,19 @@ export const deleteDocument = (id: string): void => {
         localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(updated));
     } catch (error) {
         console.error('Failed to delete document:', error);
+    }
+};
+
+// Toggle document status
+export const toggleDocumentStatus = (id: string, status: 'pending' | 'paid' | 'overdue'): void => {
+    try {
+        const documents = getDocuments();
+        const updated = documents.map(d =>
+            d.id === id ? { ...d, status } : d
+        );
+        localStorage.setItem(DOCUMENTS_KEY, JSON.stringify(updated));
+    } catch (error) {
+        console.error('Failed to update document status:', error);
     }
 };
 
@@ -93,11 +111,19 @@ export const duplicateDocument = (doc: SavedDocument): SavedDocument => {
 };
 
 // Get document stats
-export const getDocumentStats = (): { quotes: number; receipts: number; totalValue: number } => {
+export const getDocumentStats = (): {
+    quotes: number;
+    receipts: number;
+    totalValue: number;
+    pendingValue: number;
+    paidValue: number;
+} => {
     const documents = getDocuments();
     return {
         quotes: documents.filter(d => d.type === 'quote').length,
         receipts: documents.filter(d => d.type === 'receipt').length,
-        totalValue: documents.reduce((acc, d) => acc + d.total, 0)
+        totalValue: documents.reduce((acc, d) => acc + d.total, 0),
+        pendingValue: documents.filter(d => d.status === 'pending').reduce((acc, d) => acc + d.total, 0),
+        paidValue: documents.filter(d => d.status === 'paid').reduce((acc, d) => acc + d.total, 0)
     };
 };

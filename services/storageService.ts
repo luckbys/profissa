@@ -1,11 +1,12 @@
-import { Client, Appointment, UserProfile } from '../types';
+import { Client, Appointment, UserProfile, Expense } from '../types';
 
 const DB_NAME = 'GerenteDeBolsoDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented version for Expenses
 
 interface DBSchema {
     clients: Client;
     appointments: Appointment;
+    expenses: Expense;
 }
 
 let db: IDBDatabase | null = null;
@@ -41,6 +42,13 @@ export const initDB = (): Promise<IDBDatabase> => {
                 const appointmentsStore = database.createObjectStore('appointments', { keyPath: 'id' });
                 appointmentsStore.createIndex('clientId', 'clientId', { unique: false });
                 appointmentsStore.createIndex('date', 'date', { unique: false });
+            }
+
+            // Create expenses store (Version 2)
+            if (!database.objectStoreNames.contains('expenses')) {
+                const expensesStore = database.createObjectStore('expenses', { keyPath: 'id' });
+                expensesStore.createIndex('date', 'date', { unique: false });
+                expensesStore.createIndex('category', 'category', { unique: false });
             }
         };
     });

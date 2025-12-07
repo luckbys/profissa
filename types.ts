@@ -33,6 +33,18 @@ export interface Invoice {
   total: number;
   date: string;
   type: 'quote' | 'receipt'; // Orçamento ou Recibo
+  status?: 'pending' | 'paid' | 'overdue';
+}
+
+export type ExpenseCategory = 'material' | 'transport' | 'food' | 'marketing' | 'utilities' | 'other';
+
+export interface Expense {
+  id: string;
+  description: string;
+  amount: number;
+  date: string; // ISO date
+  category: ExpenseCategory;
+  notes?: string;
 }
 
 export interface UserProfile {

@@ -56,4 +56,4 @@ export interface UserProfile {
   logo?: string; // base64 encoded image
 }
 
-export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history';
+export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history' | 'coach';

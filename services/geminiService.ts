@@ -46,3 +46,52 @@ export const estimateServicePrice = async (description: string): Promise<string>
     return '';
   }
 };
+
+export interface BusinessContext {
+  monthlyRevenue: number;
+  monthlyExpenses: number;
+  monthlyProfit: number;
+  totalClients: number;
+  openQuotes: number;
+}
+
+export const askBusinessCoach = async (message: string, context?: BusinessContext): Promise<string> => {
+  try {
+    let systemPrompt = `Você é um consultor de negócios experiente especializado em autônomos e MEI no Brasil. 
+    Seu objetivo é ajudar o usuário a lucrar mais, organizar as finanças e crescer profissionalmente.
+    Seja direto, prático e motivador. Use emojis ocasionalmente.
+    Responda em português do Brasil.`;
+
+    if (context) {
+      systemPrompt += `
+      
+      DADOS DO NEGÓCIO DO USUÁRIO (MÊS ATUAL):
+      - Faturamento: R$ ${context.monthlyRevenue.toFixed(2)}
+      - Despesas: R$ ${context.monthlyExpenses.toFixed(2)}
+      - Lucro Líquido: R$ ${context.monthlyProfit.toFixed(2)}
+      - Total de Clientes: ${context.totalClients}
+      - Orçamentos em Aberto: ${context.openQuotes}
+
+      Use esses números para dar conselhos específicos. Se o lucro for baixo, sugira cortar gastos ou cobrar mais. Se tiver muitos orçamentos abertos, sugira follow-up.`;
+    } else {
+      systemPrompt += `
+      
+      O usuário está no plano Grátis, então você NÃO tem acesso aos números dele.
+      Dê conselhos genéricos de boas práticas. 
+      Se ele perguntar sobre "meus números" ou "quanto ganhei", explique que você não vê esses dados e SUGIRA que ele assine o Plano Profissional (Pro) para ter análises personalizadas.`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `${systemPrompt}\n\nPergunta do Usuário: "${message}"`,
+      config: {
+        temperature: 0.7,
+      }
+    });
+
+    return response.text?.trim() || "Desculpe, estou pensando muito... tente novamente.";
+  } catch (error) {
+    console.error("Erro no Coach IA:", error);
+    return "Tive um problema técnico. Tente novamente em instantes.";
+  }
+};

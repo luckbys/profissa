@@ -10,9 +10,10 @@ import Profile from './components/Profile';
 import NetworkStatus from './components/NetworkStatus';
 import NotificationCenter from './components/NotificationCenter';
 import DocumentHistory from './components/DocumentHistory';
+import AICoach from './components/AICoach';
 import {
   LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText,
-  Plus, X, FilePlus
+  Plus, X, FilePlus, Bot
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -131,6 +132,8 @@ const App: React.FC = () => {
             clients={clients}
           />
         );
+      case 'coach':
+        return <AICoach />;
       case 'history':
         return <DocumentHistory />;
       default:
@@ -184,6 +187,17 @@ const App: React.FC = () => {
             <FilePlus size={24} />
           </button>
           <span className="text-white text-xs font-bold bg-gray-900/80 px-2 py-1 rounded-md">Orçamento</span>
+        </div>
+
+        {/* AI Coach Button (Center/Highlight) */}
+        <div className="flex flex-col items-center gap-2 -translate-y-4">
+          <button
+            onClick={() => { setCurrentView('coach'); setIsFabOpen(false); }}
+            className="w-16 h-16 bg-purple-600 text-white rounded-full shadow-xl shadow-purple-500/30 flex items-center justify-center hover:bg-purple-700 transition-colors border-4 border-gray-50"
+          >
+            <Bot size={32} />
+          </button>
+          <span className="text-white text-xs font-bold bg-purple-900/80 px-2 py-1 rounded-md">IA Coach</span>
         </div>
 
         {/* Receipt Button */}

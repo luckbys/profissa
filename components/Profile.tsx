@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Appointment, Client, UserProfile } from '../types';
-import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, Image, X, Loader2 } from 'lucide-react';
+import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, Image, X, Loader2, ShieldCheck, Download, AlertTriangle } from 'lucide-react';
+import { exportData, importData } from '../services/backupService';
 
 interface ProfileProps {
   userProfile: UserProfile;
@@ -13,6 +14,11 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(userProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Backup States
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   // KPIs Calculations
   const stats = useMemo(() => {
@@ -80,8 +86,38 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
     setFormData({ ...formData, logo: undefined });
   };
 
+  // Backup Handlers
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      await exportData();
+    } catch (error) {
+      alert('Erro ao criar backup.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      await importData(file);
+      alert('Dados restaurados com sucesso! O aplicativo será recarregado.');
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert('Erro ao restaurar backup. Verifique se o arquivo é válido.');
+    } finally {
+      setIsImporting(false);
+      setShowRestoreModal(false);
+    }
+  };
+
   return (
-    <div className="pb-20 space-y-6">
+    <div className="pb-24 space-y-6">
       <header className="flex justify-between items-center mb-2">
         <h1 className="text-2xl font-bold text-gray-800">Meu Perfil</h1>
         <button
@@ -242,6 +278,43 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
         </p>
       </div>
 
+      {/* SEGURANÇA E DADOS (BACKUP) */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="text-brand-600" />
+          <h2 className="text-lg font-bold text-gray-800">Segurança e Dados</h2>
+        </div>
+
+        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 mb-4">
+          <p className="text-sm text-blue-800 mb-2">
+            Seus dados ficam salvos apenas neste dispositivo. Faça backups regulares para não perder nada.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting}
+            className="bg-white border border-gray-300 text-gray-700 p-4 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+          >
+            {isExporting ? <Loader2 className="animate-spin text-brand-600" /> : <Download className="text-brand-600" />}
+            <span className="font-bold text-sm">Fazer Backup</span>
+            <span className="text-[10px] text-gray-400">Exportar arquivo .json</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowRestoreModal(true)}
+            className="bg-white border border-gray-300 text-gray-700 p-4 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+          >
+            <Upload className="text-brand-600" />
+            <span className="font-bold text-sm">Restaurar Dados</span>
+            <span className="text-[10px] text-gray-400">Importar arquivo .json</span>
+          </button>
+        </div>
+      </div>
+
       {/* KPIs Section */}
       <div>
         <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1 flex items-center gap-2">
@@ -319,6 +392,43 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
         </button>
         <p className="text-xs text-gray-300 mt-2">Versão 1.0.2</p>
       </div>
+
+      {/* RESTORE MODAL */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-red-500 mb-2">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-gray-900">Atenção!</h3>
+              <p className="text-gray-500 text-sm mt-2">
+                Ao restaurar um backup, <strong>todos os dados atuais serão substituídos</strong>. Essa ação não pode ser desfeita.
+              </p>
+            </div>
+
+            <label className={`w-full py-3.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 cursor-pointer ${isImporting ? 'opacity-70 pointer-events-none' : ''}`}>
+              {isImporting ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+              <span>Selecionar Arquivo de Backup</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportFile}
+                disabled={isImporting}
+              />
+            </label>
+
+            <button
+              onClick={() => setShowRestoreModal(false)}
+              disabled={isImporting}
+              className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

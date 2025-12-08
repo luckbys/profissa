@@ -13,6 +13,8 @@ import ExpenseForm from './ExpenseForm';
 import {
   Send, Download, Trash2, CircleDollarSign, Loader2, Briefcase, X, ChevronDown, Wand2, AlertCircle, FileText, Tag
 } from 'lucide-react';
+import InvoiceTemplate, { InvoiceTemplateStyle } from './InvoiceTemplate';
+import DocumentCustomizer, { DocumentCustomization, DEFAULT_CUSTOMIZATION } from './DocumentCustomizer';
 
 interface FinanceProps {
   clients: Client[];
@@ -50,6 +52,7 @@ const Finance: React.FC<FinanceProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showNoCreditsWarning, setShowNoCreditsWarning] = useState(false);
+  const [docCustomization, setDocCustomization] = useState<DocumentCustomization>(DEFAULT_CUSTOMIZATION);
 
   // Expense State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -159,35 +162,71 @@ const Finance: React.FC<FinanceProps> = ({
     return `https://wa.me/${selectedClient.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
 
-  // Render Preview Modal (Copy of original with minimal changes)
-  if (showPreview) { /* ... Use same code as original for preview ... */
-    // For brevity in this replace, assume original preview code is kept or re-inserted if we don't return here.
-    // Re-implementing simplified preview for safety:
+  // Render Preview Modal with Professional Template
+  if (showPreview && selectedClient) {
+    const documentNumber = generateDocumentNumber(type);
+
     return (
-      <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-sm z-50 flex flex-col h-full justify-center items-center p-4">
-        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-          <div className="bg-gray-800 p-3 flex justify-between items-center px-4">
-            <span className="text-gray-400 text-xs font-medium">Visualização</span>
-            <button onClick={() => setShowPreview(false)} className="text-white hover:text-gray-300"><X size={20} /></button>
+      <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-sm z-50 flex flex-col h-full">
+        {/* Header */}
+        <div className="bg-gray-800 p-3 flex justify-between items-center px-4 shrink-0">
+          <span className="text-gray-400 text-xs font-medium">
+            Visualização do {type === 'quote' ? 'Orçamento' : 'Recibo'}
+          </span>
+          <button onClick={() => setShowPreview(false)} className="text-white hover:text-gray-300">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Scrollable Preview Area */}
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-100">
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-2xl mx-auto">
+            <InvoiceTemplate
+              type={type}
+              documentNumber={documentNumber}
+              clientName={selectedClient.name}
+              clientPhone={selectedClient.phone}
+              clientEmail={selectedClient.email}
+              clientAddress={selectedClient.address}
+              items={items}
+              total={total}
+              createdAt={new Date().toISOString()}
+              userProfile={userProfile}
+              templateStyle={docCustomization.template}
+              validityDays={docCustomization.validityDays}
+              showWatermark={docCustomization.showWatermark}
+              showSignature={docCustomization.showSignature}
+              showPaymentMethods={docCustomization.showPaymentMethods}
+              paymentMethods={docCustomization.paymentMethods}
+              showLogo={docCustomization.showLogo}
+              notes={docCustomization.customNotes}
+            />
           </div>
-          <div className="flex-1 overflow-y-auto p-8" id="invoice-preview">
-            {/* Re-use Header, Client Info, Table, Total from original */}
-            <div className="text-center mb-8"><h2 className="text-2xl font-bold">{type === 'quote' ? 'ORÇAMENTO' : 'RECIBO'}</h2></div>
-            <div className="mb-6"><p><strong>Cliente:</strong> {selectedClient?.name}</p></div>
-            <table className="w-full mb-6">
-              <thead><tr className="border-b"><th className="text-left">Item</th><th className="text-right">Valor</th></tr></thead>
-              <tbody>{items.map(i => <tr key={i.id}><td className="py-2">{i.description}</td><td className="text-right">R$ {i.price.toFixed(2)}</td></tr>)}</tbody>
-            </table>
-            <div className="text-right font-bold text-xl">Total: R$ {total.toFixed(2)}</div>
-          </div>
-          <div className="p-4 bg-white border-t border-gray-100 flex gap-3 z-10">
-            <a href={generateWhatsAppLink()} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">WhatsApp</a>
-            <button onClick={handleDownloadPDF} disabled={isDownloading} className="flex-1 bg-gray-100 text-gray-800 py-3 rounded-xl font-bold flex items-center justify-center gap-2">{isDownloading ? 'Baixando...' : 'PDF'}</button>
-          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="p-4 bg-white border-t border-gray-200 flex gap-3 shrink-0">
+          <a
+            href={generateWhatsAppLink()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg"
+          >
+            <Send size={18} /> WhatsApp
+          </a>
+          <button
+            onClick={handleDownloadPDF}
+            disabled={isDownloading}
+            className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg disabled:opacity-50"
+          >
+            {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            {isDownloading ? 'Gerando...' : 'Baixar PDF'}
+          </button>
         </div>
       </div>
     );
   }
+
 
   return (
     <div className="pb-24 space-y-6">
@@ -301,6 +340,16 @@ const Finance: React.FC<FinanceProps> = ({
                 <div className="flex justify-between font-bold text-lg mt-3 pt-3 border-t border-gray-200"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
               </div>
             )}
+
+            {/* Document Customizer (Pro Feature) */}
+            <div className="p-4 border-t border-gray-100">
+              <DocumentCustomizer
+                customization={docCustomization}
+                onChange={setDocCustomization}
+                isPro={userProfile?.isPro || false}
+                onUpgrade={upgradeToPro}
+              />
+            </div>
           </div>
 
           <button onClick={handleGenerateDocument} disabled={items.length === 0 || !selectedClientId} className="w-full bg-brand-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:shadow-none">

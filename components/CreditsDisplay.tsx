@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Subscription, PLAN_LIMITS } from '../types/subscription';
-import { Coins, Crown, Sparkles, Check, X, Zap } from 'lucide-react';
+import { Coins, Crown, Sparkles, Check, X, Zap, Bot, FileText, Infinity } from 'lucide-react';
 
 interface CreditsDisplayProps {
     subscription: Subscription;
@@ -12,22 +12,37 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ subscription, onUpgrade
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const isPro = subscription.plan === 'pro';
-    const creditsPercentage = (subscription.credits / subscription.maxCredits) * 100;
-    const isLow = subscription.credits <= 2 && !isPro;
+    const hasUnlimitedDocs = isPro;
+    const aiCreditsPercentage = (subscription.aiCredits / subscription.maxAiCredits) * 100;
+    const docCreditsPercentage = hasUnlimitedDocs ? 100 : (subscription.credits / subscription.maxCredits) * 100;
+    const isLowDocs = subscription.credits <= 2 && !isPro;
+    const isLowAi = subscription.aiCredits <= 1;
 
     if (compact) {
         return (
             <button
                 onClick={() => !isPro && setShowUpgradeModal(true)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${isPro
-                        ? 'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200'
-                        : isLow
-                            ? 'bg-red-50 text-red-600 border border-red-200 animate-pulse'
-                            : 'bg-brand-50 text-brand-700 border border-brand-200'
+                    ? 'bg-gradient-to-r from-amber-100 to-yellow-100 text-amber-700 border border-amber-200'
+                    : isLowDocs || isLowAi
+                        ? 'bg-red-50 text-red-600 border border-red-200 animate-pulse'
+                        : 'bg-brand-50 text-brand-700 border border-brand-200'
                     }`}
             >
-                {isPro ? <Crown size={14} className="text-amber-500" /> : <Coins size={14} />}
-                <span>{subscription.credits}/{subscription.maxCredits}</span>
+                {isPro ? (
+                    <>
+                        <Crown size={14} className="text-amber-500" />
+                        <span>PRO</span>
+                    </>
+                ) : (
+                    <>
+                        <FileText size={14} />
+                        <span>{subscription.credits}</span>
+                        <span className="text-gray-400">|</span>
+                        <Bot size={14} />
+                        <span>{subscription.aiCredits}</span>
+                    </>
+                )}
             </button>
         );
     }
@@ -35,8 +50,8 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ subscription, onUpgrade
     return (
         <>
             <div className={`rounded-2xl p-4 border ${isPro
-                    ? 'bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200'
-                    : 'bg-white border-gray-200'
+                ? 'bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200'
+                : 'bg-white border-gray-200'
                 }`}>
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
@@ -54,7 +69,9 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ subscription, onUpgrade
                             <h3 className="font-bold text-gray-800 text-sm">
                                 {isPro ? 'Plano Pro' : 'Plano Gratuito'}
                             </h3>
-                            <p className="text-[10px] text-gray-500">Créditos para documentos</p>
+                            <p className="text-[10px] text-gray-500">
+                                {isPro ? 'Documentos ilimitados' : 'Créditos mensais'}
+                            </p>
                         </div>
                     </div>
 
@@ -69,28 +86,52 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ subscription, onUpgrade
                     )}
                 </div>
 
-                {/* Credits Bar */}
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <span className="text-2xl font-bold text-gray-800">
-                            {subscription.credits}
-                            <span className="text-sm font-normal text-gray-400 ml-1">/ {subscription.maxCredits}</span>
-                        </span>
-                        <span className={`text-xs font-medium ${isLow ? 'text-red-500' : 'text-gray-500'}`}>
-                            {isLow ? 'Créditos baixos!' : 'créditos restantes'}
-                        </span>
+                {/* Credits Display */}
+                <div className="space-y-3">
+                    {/* Document Credits */}
+                    <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2">
+                                <FileText size={14} className="text-gray-500" />
+                                <span className="text-xs font-medium text-gray-600">Documentos</span>
+                            </div>
+                            <span className={`text-sm font-bold ${isLowDocs ? 'text-red-500' : 'text-gray-800'}`}>
+                                {hasUnlimitedDocs ? (
+                                    <span className="flex items-center gap-1">
+                                        <Infinity size={16} className="text-amber-500" /> Ilimitado
+                                    </span>
+                                ) : (
+                                    <>{subscription.credits}/{subscription.maxCredits}</>
+                                )}
+                            </span>
+                        </div>
+                        {!hasUnlimitedDocs && (
+                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-500 ${isLowDocs ? 'bg-red-500' : 'bg-brand-500'}`}
+                                    style={{ width: `${docCreditsPercentage}%` }}
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all duration-500 ${isPro
-                                    ? 'bg-gradient-to-r from-amber-400 to-yellow-500'
-                                    : isLow
-                                        ? 'bg-red-500'
-                                        : 'bg-brand-500'
-                                }`}
-                            style={{ width: `${creditsPercentage}%` }}
-                        />
+                    {/* AI Credits */}
+                    <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2">
+                                <Bot size={14} className="text-purple-500" />
+                                <span className="text-xs font-medium text-gray-600">Créditos IA</span>
+                            </div>
+                            <span className={`text-sm font-bold ${isLowAi ? 'text-red-500' : 'text-gray-800'}`}>
+                                {subscription.aiCredits}/{subscription.maxAiCredits}
+                            </span>
+                        </div>
+                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full rounded-full transition-all duration-500 ${isLowAi ? 'bg-red-500' : 'bg-purple-500'}`}
+                                style={{ width: `${aiCreditsPercentage}%` }}
+                            />
+                        </div>
                     </div>
 
                     <p className="text-[10px] text-gray-400 text-center">
@@ -133,10 +174,10 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ subscription, onUpgrade
                         </div>
 
                         {/* Features */}
-                        <div className="p-6 space-y-3">
+                        <div className="p-6 space-y-2.5 max-h-64 overflow-y-auto">
                             {PLAN_LIMITS.pro.features.map((feature, index) => (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="bg-green-100 p-1 rounded-full">
+                                    <div className="bg-green-100 p-1 rounded-full shrink-0">
                                         <Check size={12} className="text-green-600" />
                                     </div>
                                     <span className="text-gray-700 text-sm">{feature}</span>
@@ -171,3 +212,4 @@ const CreditsDisplay: React.FC<CreditsDisplayProps> = ({ subscription, onUpgrade
 };
 
 export default CreditsDisplay;
+

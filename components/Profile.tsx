@@ -20,6 +20,11 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   const [formData, setFormData] = useState(userProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync formData when userProfile changes (from React Query)
+  useEffect(() => {
+    setFormData(userProfile);
+  }, [userProfile]);
+
   // Backup States
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -79,10 +84,15 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
     };
   }, [appointments, clients]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     onUpdateProfile(formData);
     setIsEditing(false);
+  };
+
+  // Separate function for branding save to avoid type issues
+  const handleSaveBranding = () => {
+    onUpdateProfile(formData);
   };
 
   const [isUploading, setIsUploading] = useState(false);
@@ -374,7 +384,7 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
           {/* Save Button for branding */}
           <button
             type="button"
-            onClick={handleSubmit as any}
+            onClick={handleSaveBranding}
             className="w-full py-3 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2"
           >
             <Save size={16} />

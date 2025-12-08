@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, Client, UserProfile } from '../types';
-import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Download, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download, AlertTriangle, Lock, Unlock } from 'lucide-react';
 import { exportData, importData } from '../services/backupService';
 import { setPIN, removePIN, hasPIN, isAppLocked } from '../services/authService';
 import LockScreen from './LockScreen';
+import ProPlanModal from './ProPlanModal';
+import { redirectToCustomerPortal } from '../services/stripeService';
 
 interface ProfileProps {
   userProfile: UserProfile;
@@ -25,6 +27,9 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   // Security States
   const [isLockEnabled, setIsLockEnabled] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
+
+  // Stripe / Pro Modal
+  const [showProModal, setShowProModal] = useState(false);
 
   useEffect(() => {
     setIsLockEnabled(hasPIN());
@@ -156,6 +161,12 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
         />
       )}
 
+      {/* Pro Plan Modal */}
+      <ProPlanModal
+        isOpen={showProModal}
+        onClose={() => setShowProModal(false)}
+      />
+
       <header className="flex justify-between items-center mb-2">
         <h1 className="text-2xl font-bold text-gray-800">Meu Perfil</h1>
         <button
@@ -250,8 +261,8 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
           <button
             onClick={handleToggleLock}
             className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${isLockEnabled
-                ? 'bg-red-100 text-red-600 hover:bg-red-200'
-                : 'bg-brand-600 text-white hover:bg-brand-700'
+              ? 'bg-red-100 text-red-600 hover:bg-red-200'
+              : 'bg-brand-600 text-white hover:bg-brand-700'
               }`}
           >
             {isLockEnabled ? 'Desativar' : 'Ativar'}
@@ -436,22 +447,50 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
         </div>
       </div>
 
-      {/* Subscription Banner */}
-      <div className="bg-gray-900 text-white p-5 rounded-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500 rounded-full blur-3xl opacity-20 -translate-y-10 translate-x-10"></div>
-        <div className="relative z-10">
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <h4 className="font-bold text-lg">Plano Profissional</h4>
-              <p className="text-gray-400 text-sm">Assinatura Ativa • Renovação em 15 dias</p>
+      {/* Subscription Banner - Dynamic */}
+      {userProfile.isPro ? (
+        <div className="bg-gray-900 text-white p-5 rounded-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500 rounded-full blur-3xl opacity-20 -translate-y-10 translate-x-10"></div>
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <h4 className="font-bold text-lg">Plano Profissional</h4>
+                <p className="text-gray-400 text-sm">Membro Premium Ativo</p>
+              </div>
+              <span className="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2 py-1 rounded-md border border-yellow-500/30">PREMIUM</span>
             </div>
-            <span className="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2 py-1 rounded-md border border-yellow-500/30">PREMIUM</span>
-          </div>
-          <div className="w-full bg-gray-700 h-1.5 rounded-full mt-3 overflow-hidden">
-            <div className="bg-yellow-500 h-full w-3/4"></div>
+            <div className="mt-3 flex items-center gap-2 text-xs text-gray-300">
+              <Shield size={14} className="text-green-400" /> Backup em Nuvem Ativado
+            </div>
+            <button
+              onClick={redirectToCustomerPortal}
+              className="mt-4 w-full py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <ShieldCheck size={16} /> Gerenciar Assinatura
+            </button>
           </div>
         </div>
-      </div>
+      ) : (
+        <div
+          onClick={() => setShowProModal(true)}
+          className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-5 rounded-2xl relative overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-lg"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500 rounded-full blur-3xl opacity-10 -translate-y-10 translate-x-10 animate-pulse"></div>
+          <div className="relative z-10">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-bold text-lg">Seja Profissional</h4>
+              <span className="bg-white/10 backdrop-blur-md text-white px-2 py-1 rounded text-xs font-bold">ASSINAR</span>
+            </div>
+            <p className="text-gray-300 text-sm mb-3 max-w-[80%]">
+              Desbloqueie relatórios, backups automáticos e muito mais.
+            </p>
+            <div className="flex items-center gap-2 text-yellow-400 font-bold text-sm">
+              <Award size={16} />
+              <span>Experimente agora</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="text-center pt-4">
         <button className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors">

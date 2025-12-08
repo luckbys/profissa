@@ -54,6 +54,8 @@ export interface UserProfile {
   email: string;
   companyName?: string;
   logo?: string; // base64 encoded image
+  isPro?: boolean;
+  subscriptionStatus?: 'free' | 'pro';
 }
 
 export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history' | 'coach';

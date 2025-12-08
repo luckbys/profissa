@@ -53,6 +53,25 @@ const App: React.FC = () => {
     setUserProfile
   } = useLocalData();
 
+  // Check for Stripe Success
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('success') === 'true') {
+      // Simulate enabling pro mode
+      // In a real app, this would verify with backend
+      const enablePro = async () => {
+        if (!userProfile.isPro) {
+          await setUserProfile({ ...userProfile, isPro: true, subscriptionStatus: 'pro' });
+          alert('Parabéns! Sua assinatura Pro foi ativada com sucesso.');
+
+          // Clean URL
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      };
+      enablePro();
+    }
+  }, [userProfile, setUserProfile]);
+
   const {
     notifications,
     unreadCount,

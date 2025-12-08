@@ -107,13 +107,21 @@ export const syncClients = async (userId: string): Promise<Client[]> => {
 };
 
 export const saveClientToSupabase = async (userId: string, client: Client): Promise<void> => {
+    console.log('[Sync] saveClientToSupabase called', {
+        userId,
+        clientId: client.id,
+        isConfigured: isSupabaseConfigured()
+    });
+
     if (!isSupabaseConfigured()) {
+        console.warn('[Sync] Supabase not configured, adding to sync queue');
         addToSyncQueue('clients', 'insert', { userId, client });
         return;
     }
 
     try {
-        const { error } = await supabase.from('clients').upsert({
+        console.log('[Sync] Sending client to Supabase...');
+        const { data, error } = await supabase.from('clients').upsert({
             id: client.id,
             user_id: userId,
             name: client.name,
@@ -123,11 +131,16 @@ export const saveClientToSupabase = async (userId: string, client: Client): Prom
             notes: client.notes || null,
             tags: client.tags || [],
             birthday: client.birthday || null
-        });
+        }).select();
 
-        if (error) throw error;
+        if (error) {
+            console.error('[Sync] Supabase error:', error);
+            throw error;
+        }
+
+        console.log('[Sync] Client saved successfully:', data);
     } catch (error) {
-        console.error('Error saving client to Supabase:', error);
+        console.error('[Sync] Error saving client to Supabase:', error);
         addToSyncQueue('clients', 'insert', { userId, client });
     }
 };

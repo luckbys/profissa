@@ -150,6 +150,13 @@ export const useSupabaseData = () => {
     // ============= CLIENT OPERATIONS =============
 
     const addClient = useCallback(async (client: Client) => {
+        console.log('[useSupabaseData] addClient called', {
+            clientName: client.name,
+            userId: user?.id,
+            isConfigured,
+            isAuthenticated
+        });
+
         // Optimistic update
         setClients(prev => [...prev, client]);
         localStorage.setItem(STORAGE_KEYS.clients, JSON.stringify([...clients, client]));
@@ -157,8 +164,10 @@ export const useSupabaseData = () => {
         // Sync to Supabase
         if (user?.id) {
             await saveClientToSupabase(user.id, client);
+        } else {
+            console.warn('[useSupabaseData] No user.id available, data saved to localStorage only');
         }
-    }, [clients, user?.id]);
+    }, [clients, user?.id, isConfigured, isAuthenticated]);
 
     const updateClient = useCallback(async (updatedClient: Client) => {
         const newClients = clients.map(c => c.id === updatedClient.id ? updatedClient : c);

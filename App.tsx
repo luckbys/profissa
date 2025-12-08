@@ -157,7 +157,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard appointments={appointments} clients={clients} documentsCount={getDocuments().length} />;
+        return <Dashboard appointments={appointments} clients={clients} documentsCount={getDocuments().length} userProfile={userProfile} />;
       case 'clients':
         return (
           <Clients
@@ -185,6 +185,7 @@ const App: React.FC = () => {
             onViewHistory={() => setCurrentView('history')}
             initialTab={financeInitialTab}
             initialType={financeInitialType}
+            appointments={appointments}
           />
         );
       case 'profile':
@@ -208,26 +209,33 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative border-x border-gray-200">
 
-      {/* Network Status Indicator */}
-      <NetworkStatus isOnline={isOnline} />
-
-      {/* Notification Center */}
-      <div className="fixed top-4 left-4 z-50">
-        <NotificationCenter
-          notifications={notifications}
-          unreadCount={unreadCount}
-          settings={notificationSettings}
-          permission={notificationPermission}
-          isSupported={notificationSupported}
-          onRequestPermission={requestPermission}
-          onUpdateSettings={updateNotificationSettings}
-          onMarkAsRead={markAsRead}
-          onClearAll={clearAllNotifications}
-        />
-      </div>
+      {/* Top Header Bar with Network Status and Notification Bell */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg font-bold bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">Profissa</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Inline Network Status */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+            <span>{isOnline ? 'Online' : 'Offline'}</span>
+          </div>
+          <NotificationCenter
+            notifications={notifications}
+            unreadCount={unreadCount}
+            settings={notificationSettings}
+            permission={notificationPermission}
+            isSupported={notificationSupported}
+            onRequestPermission={requestPermission}
+            onUpdateSettings={updateNotificationSettings}
+            onMarkAsRead={markAsRead}
+            onClearAll={clearAllNotifications}
+          />
+        </div>
+      </header>
 
       {/* Main Content Area */}
-      <main className="p-5 h-full overflow-y-auto min-h-screen">
+      <main className="p-5 overflow-y-auto pb-24">
         {renderView()}
       </main>
 

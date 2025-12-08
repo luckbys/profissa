@@ -73,10 +73,10 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 )}
             </button>
 
-            {/* Notification Panel */}
+            {/* Notification Panel - Uses fixed positioning relative to viewport */}
             {isOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end">
-                    <div className="bg-white w-full max-w-sm h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex justify-center" style={{ left: 0, right: 0, top: 0, bottom: 0 }}>
+                    <div className="bg-white w-full max-w-md h-full shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
 
                         {/* Header */}
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between">

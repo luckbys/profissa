@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Client, UserProfile, Expense } from '../types';
+import { Client, UserProfile, Expense, Appointment } from '../types';
 import { Sparkles, Receipt, MinusCircle, TrendingUp, TrendingDown, DollarSign, PieChart, Plus } from 'lucide-react';
 import { professionalizeDescription, estimateServicePrice } from '../services/geminiService';
 import { useSubscription } from '../hooks/useSubscription';
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import InvoiceTemplate, { InvoiceTemplateStyle } from './InvoiceTemplate';
 import DocumentCustomizer, { DocumentCustomization, DEFAULT_CUSTOMIZATION } from './DocumentCustomizer';
+import CashFlowWidget from './CashFlowWidget';
 
 interface FinanceProps {
   clients: Client[];
@@ -22,6 +23,7 @@ interface FinanceProps {
   onViewHistory?: () => void;
   initialTab?: 'overview' | 'documents' | 'expenses';
   initialType?: 'quote' | 'receipt';
+  appointments?: Appointment[];
 }
 
 const Finance: React.FC<FinanceProps> = ({
@@ -29,7 +31,8 @@ const Finance: React.FC<FinanceProps> = ({
   userProfile,
   onViewHistory,
   initialTab = 'overview',
-  initialType = 'quote'
+  initialType = 'quote',
+  appointments = []
 }) => {
   // Tab State
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'expenses'>(initialTab);
@@ -257,32 +260,34 @@ const Finance: React.FC<FinanceProps> = ({
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-green-50 p-4 rounded-2xl border border-green-100">
-              <div className="flex items-center gap-2 text-green-600 mb-2">
-                <TrendingUp size={18} />
-                <span className="font-bold text-xs uppercase tracking-wide">Receita (Pago)</span>
-              </div>
-              <span className="text-2xl font-bold text-gray-800">R$ {cashFlow.revenue.toFixed(2)}</span>
-            </div>
-            <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
-              <div className="flex items-center gap-2 text-red-600 mb-2">
-                <TrendingDown size={18} />
-                <span className="font-bold text-xs uppercase tracking-wide">Despesas</span>
-              </div>
-              <span className="text-2xl font-bold text-gray-800">R$ {cashFlow.expenses.toFixed(2)}</span>
-            </div>
-          </div>
+          {/* Cash Flow Widget */}
+          <CashFlowWidget
+            appointments={appointments}
+            expenses={expenses}
+            revenue={cashFlow.revenue}
+            expensesTotal={cashFlow.expenses}
+          />
 
-          <div className="bg-gray-900 text-white p-6 rounded-2xl shadow-xl">
-            <div className="flex items-center gap-2 text-gray-400 mb-2">
-              <PieChart size={18} />
-              <span className="font-bold text-xs uppercase tracking-wide">Lucro Líquido</span>
-            </div>
-            <span className={`text-4xl font-bold ${cashFlow.profit >= 0 ? 'text-white' : 'text-red-300'}`}>
-              R$ {cashFlow.profit.toFixed(2)}
-            </span>
-            <p className="text-sm text-gray-400 mt-2">Balanço do mês atual</p>
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => setActiveTab('documents')}
+              className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <div className="bg-green-100 p-2 rounded-lg">
+                <Receipt size={20} className="text-green-600" />
+              </div>
+              <span className="font-bold text-gray-800 text-sm">Novo Documento</span>
+            </button>
+            <button
+              onClick={() => setIsExpenseModalOpen(true)}
+              className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <div className="bg-red-100 p-2 rounded-lg">
+                <MinusCircle size={20} className="text-red-600" />
+              </div>
+              <span className="font-bold text-gray-800 text-sm">Nova Despesa</span>
+            </button>
           </div>
 
           <button

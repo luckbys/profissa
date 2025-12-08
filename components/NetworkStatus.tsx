@@ -21,11 +21,11 @@ const NetworkStatus: React.FC<NetworkStatusProps> = ({ isOnline }) => {
 
     return (
         <>
-            {/* Persistent indicator */}
+            {/* Persistent indicator - positioned in bottom right to avoid header overlap */}
             <div
-                className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${isOnline
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'
+                className={`fixed bottom-24 right-4 z-40 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 shadow-lg ${isOnline
+                    ? 'bg-green-100 text-green-700 border border-green-200'
+                    : 'bg-gray-100 text-gray-600 border border-gray-200'
                     }`}
             >
                 {isOnline ? (

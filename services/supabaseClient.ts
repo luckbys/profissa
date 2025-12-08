@@ -1,21 +1,32 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// Check if we have valid credentials
+const hasCredentials = supabaseUrl && supabaseAnonKey && supabaseUrl.startsWith('http');
+
+if (!hasCredentials) {
     console.warn('Supabase credentials not configured. Using localStorage fallback.');
 }
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
+// Create Supabase client only if credentials exist
+// Using a placeholder URL/key to prevent errors, but isSupabaseConfigured() will return false
+const placeholderUrl = 'https://placeholder.supabase.co';
+const placeholderKey = 'placeholder-key';
+
+export const supabase: SupabaseClient = createClient(
+    hasCredentials ? supabaseUrl : placeholderUrl,
+    hasCredentials ? supabaseAnonKey : placeholderKey,
+    {
+        auth: {
+            persistSession: hasCredentials,
+            autoRefreshToken: hasCredentials,
+            detectSessionInUrl: hasCredentials
+        }
     }
-});
+);
 
 // Database types
 export interface DbProfile {
@@ -110,7 +121,7 @@ export const signOut = async () => {
 };
 
 export const isSupabaseConfigured = () => {
-    return !!(supabaseUrl && supabaseAnonKey);
+    return hasCredentials;
 };
 
 export default supabase;

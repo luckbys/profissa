@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { ViewState, Client, Appointment } from './types';
-import { useLocalDataQuery } from './hooks/useDataQuery';
+import { useSupabaseData } from './hooks/useSupabaseData';
 import { useNotifications } from './hooks/useNotifications';
+import { useAuth } from './hooks/useAuth';
 import Dashboard from './components/Dashboard';
 import Clients from './components/Clients';
 import CalendarView from './components/CalendarView';
 import Finance from './components/Finance';
 import Profile from './components/Profile';
-import NetworkStatus from './components/NetworkStatus';
+import SyncIndicator from './components/SyncIndicator';
 import NotificationCenter from './components/NotificationCenter';
 import DocumentHistory from './components/DocumentHistory';
 import AICoach from './components/AICoach';
 import LockScreen from './components/LockScreen';
 import BookingPage from './components/BookingPage';
+import AuthScreen from './components/AuthScreen';
+import OnboardingScreen from './components/OnboardingScreen';
 import { isAppLocked, unlockApp } from './services/authService';
 import { getDocuments } from './services/documentService';
 import {
@@ -24,6 +27,17 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = React.useState<ViewState>('dashboard');
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+
+  // Supabase Auth State
+  const {
+    user,
+    isLoading: isAuthLoading,
+    isAuthenticated,
+    needsOnboarding,
+    completeOnboarding,
+    signOut,
+    isConfigured: isSupabaseConfigured
+  } = useAuth();
 
   // Check Lock Screen on Mount
   React.useEffect(() => {
@@ -57,13 +71,15 @@ const App: React.FC = () => {
     userProfile,
     isLoading,
     isOnline,
+    syncStatus,
     addClient,
     updateClient,
     removeClient,
     addAppointment,
     toggleAppointmentStatus,
-    setUserProfile
-  } = useLocalDataQuery();
+    setUserProfile,
+    forceSync
+  } = useSupabaseData();
 
   // Check for Stripe Success
   React.useEffect(() => {
@@ -124,7 +140,36 @@ const App: React.FC = () => {
     setIsFabOpen(false);
   };
 
-  // Loading state
+  // Auth Loading state
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-600 via-indigo-600 to-purple-700 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-white animate-spin" />
+          <p className="text-white/70 text-sm">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth Screen (Login/Register) - only if Supabase is configured
+  if (isSupabaseConfigured && !isAuthenticated) {
+    return <AuthScreen onAuthSuccess={() => { }} />;
+  }
+
+  // Onboarding Screen - for new users
+  if (isSupabaseConfigured && needsOnboarding && user) {
+    return (
+      <OnboardingScreen
+        userId={user.id}
+        userEmail={user.email || ''}
+        userName={user.user_metadata?.name}
+        onComplete={completeOnboarding}
+      />
+    );
+  }
+
+  // Data Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -215,11 +260,12 @@ const App: React.FC = () => {
           <span className="text-lg font-bold bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">Profissa</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* Inline Network Status */}
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
-            <span>{isOnline ? 'Online' : 'Offline'}</span>
-          </div>
+          {/* Sync Status Indicator */}
+          <SyncIndicator
+            isOnline={isOnline}
+            syncStatus={syncStatus}
+            onForceSync={forceSync}
+          />
           <NotificationCenter
             notifications={notifications}
             unreadCount={unreadCount}

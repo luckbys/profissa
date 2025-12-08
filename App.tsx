@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ViewState, Client, Appointment } from './types';
-import { useLocalData } from './hooks/useLocalData';
+import { useLocalDataQuery } from './hooks/useDataQuery';
 import { useNotifications } from './hooks/useNotifications';
 import Dashboard from './components/Dashboard';
 import Clients from './components/Clients';
@@ -63,7 +63,7 @@ const App: React.FC = () => {
     addAppointment,
     toggleAppointmentStatus,
     setUserProfile
-  } = useLocalData();
+  } = useLocalDataQuery();
 
   // Check for Stripe Success
   React.useEffect(() => {

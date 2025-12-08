@@ -260,7 +260,7 @@ export const syncProfile = async (userId: string): Promise<UserProfile | null> =
                 logo: profile.logo || '',
                 companyName: profile.company_name || '',
                 isPro: profile.is_pro || false,
-                subscriptionStatus: profile.subscription_status || 'free'
+                subscriptionStatus: profile.is_pro ? 'pro' : 'free'
             };
 
             localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
@@ -298,10 +298,9 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
                 logo: profile.logo,
                 company_name: profile.companyName,
                 is_pro: profile.isPro,
-                subscription_status: profile.subscriptionStatus,
                 updated_at: new Date().toISOString()
             }).eq('user_id', userId);
-            
+
             if (error) throw error;
         } else {
             const { error } = await supabase.from('profiles').insert({
@@ -313,14 +312,13 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
                 logo: profile.logo,
                 company_name: profile.companyName,
                 is_pro: profile.isPro,
-                subscription_status: profile.subscriptionStatus,
                 updated_at: new Date().toISOString()
             });
 
             if (error) throw error;
         }
 
-        if (error) throw error;
+
     } catch (error) {
         console.error('Error saving profile to Supabase:', error);
         addToSyncQueue('profiles', 'update', { userId, profile });

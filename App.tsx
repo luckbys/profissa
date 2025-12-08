@@ -12,7 +12,9 @@ import NotificationCenter from './components/NotificationCenter';
 import DocumentHistory from './components/DocumentHistory';
 import AICoach from './components/AICoach';
 import LockScreen from './components/LockScreen';
+import BookingPage from './components/BookingPage';
 import { isAppLocked, unlockApp } from './services/authService';
+import { getDocuments } from './services/documentService';
 import {
   LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText,
   Plus, X, FilePlus, Bot
@@ -27,6 +29,16 @@ const App: React.FC = () => {
   React.useEffect(() => {
     if (isAppLocked()) {
       setIsLocked(true);
+    }
+  }, []);
+
+  // Check for booking mode on mount
+  const [bookingData, setBookingData] = useState<string | null>(null);
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const booking = params.get('booking');
+    if (booking) {
+      setBookingData(booking);
     }
   }, []);
 
@@ -129,10 +141,23 @@ const App: React.FC = () => {
     return <LockScreen onUnlock={handleUnlock} />;
   }
 
+  // Booking Page (Public View)
+  if (bookingData) {
+    return (
+      <BookingPage
+        encodedData={bookingData}
+        onBack={() => {
+          setBookingData(null);
+          window.history.replaceState({}, '', window.location.pathname);
+        }}
+      />
+    );
+  }
+
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard appointments={appointments} />;
+        return <Dashboard appointments={appointments} clients={clients} documentsCount={getDocuments().length} />;
       case 'clients':
         return (
           <Clients
@@ -176,7 +201,7 @@ const App: React.FC = () => {
       case 'history':
         return <DocumentHistory />;
       default:
-        return <Dashboard appointments={appointments} />;
+        return <Dashboard appointments={appointments} clients={clients} documentsCount={getDocuments().length} />;
     }
   };
 

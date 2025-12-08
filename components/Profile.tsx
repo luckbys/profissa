@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, Client, UserProfile } from '../types';
-import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download, AlertTriangle, Lock, Unlock } from 'lucide-react';
+import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download, AlertTriangle, Lock, Unlock, Link2 } from 'lucide-react';
 import { exportData, importData } from '../services/backupService';
 import { setPIN, removePIN, hasPIN, isAppLocked } from '../services/authService';
 import LockScreen from './LockScreen';
 import ProPlanModal from './ProPlanModal';
+import BookingSettings from './BookingSettings';
 import { redirectToCustomerPortal } from '../services/stripeService';
 
 interface ProfileProps {
@@ -30,6 +31,9 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
 
   // Stripe / Pro Modal
   const [showProModal, setShowProModal] = useState(false);
+
+  // Booking Settings Modal
+  const [showBookingSettings, setShowBookingSettings] = useState(false);
 
   useEffect(() => {
     setIsLockEnabled(hasPIN());
@@ -269,6 +273,33 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
           </button>
         </div>
       </div>
+
+      {/* LINK DE AGENDAMENTO ONLINE */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2 mb-4">
+          <Link2 className="text-brand-600" />
+          <h2 className="text-lg font-bold text-gray-800">Agendamento Online</h2>
+        </div>
+
+        <div className="bg-gradient-to-r from-brand-50 to-blue-50 p-4 rounded-xl border border-brand-100">
+          <p className="text-sm text-gray-700 mb-3">
+            Crie um link público para seus clientes agendarem horários diretamente pelo celular.
+          </p>
+          <button
+            onClick={() => setShowBookingSettings(true)}
+            className="w-full py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Link2 size={18} /> Configurar Link de Agendamento
+          </button>
+        </div>
+      </div>
+
+      {/* Booking Settings Modal */}
+      <BookingSettings
+        userProfile={userProfile}
+        isOpen={showBookingSettings}
+        onClose={() => setShowBookingSettings(false)}
+      />
 
       {/* Company Branding Section */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">

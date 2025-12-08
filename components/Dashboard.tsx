@@ -1,13 +1,16 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Appointment } from '../types';
+import { Appointment, Client } from '../types';
 import { TrendingUp, Users, Calendar, Wallet } from 'lucide-react';
+import GoalsWidget from './GoalsWidget';
 
 interface DashboardProps {
   appointments: Appointment[];
+  clients: Client[];
+  documentsCount: number;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ appointments }) => {
+const Dashboard: React.FC<DashboardProps> = ({ appointments, clients, documentsCount }) => {
   // Simple data aggregation for the chart
   const data = [
     { name: 'Seg', valor: 150 },
@@ -51,6 +54,13 @@ const Dashboard: React.FC<DashboardProps> = ({ appointments }) => {
         </div>
       </div>
 
+      {/* Goals Widget */}
+      <GoalsWidget
+        appointments={appointments}
+        clients={clients}
+        documentsCount={documentsCount}
+      />
+
       {/* Chart */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -61,16 +71,16 @@ const Dashboard: React.FC<DashboardProps> = ({ appointments }) => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fontSize: 12, fill: '#9ca3af'}} 
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
                 dy={10}
               />
-              <Tooltip 
-                cursor={{fill: '#f0f9ff'}}
-                contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+              <Tooltip
+                cursor={{ fill: '#f0f9ff' }}
+                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
               />
               <Bar dataKey="valor" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
             </BarChart>

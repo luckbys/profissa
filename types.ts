@@ -58,4 +58,4 @@ export interface UserProfile {
   subscriptionStatus?: 'free' | 'pro';
 }
 
-export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history' | 'coach';
+export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history' | 'coach' | 'booking';

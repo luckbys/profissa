@@ -282,20 +282,43 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
     }
 
     try {
-        const { error } = await supabase.from('profiles').upsert({
-            user_id: userId,
-            name: profile.name,
-            profession: profile.profession,
-            phone: profile.phone,
-            email: profile.email,
-            logo: profile.logo,
-            company_name: profile.companyName,
-            is_pro: profile.isPro,
-            subscription_status: profile.subscriptionStatus,
-            updated_at: new Date().toISOString()
-        }, {
-            onConflict: 'user_id'
-        });
+        // Check if profile exists first
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (existingProfile) {
+            const { error } = await supabase.from('profiles').update({
+                name: profile.name,
+                profession: profile.profession,
+                phone: profile.phone,
+                email: profile.email,
+                logo: profile.logo,
+                company_name: profile.companyName,
+                is_pro: profile.isPro,
+                subscription_status: profile.subscriptionStatus,
+                updated_at: new Date().toISOString()
+            }).eq('user_id', userId);
+            
+            if (error) throw error;
+        } else {
+            const { error } = await supabase.from('profiles').insert({
+                user_id: userId,
+                name: profile.name,
+                profession: profile.profession,
+                phone: profile.phone,
+                email: profile.email,
+                logo: profile.logo,
+                company_name: profile.companyName,
+                is_pro: profile.isPro,
+                subscription_status: profile.subscriptionStatus,
+                updated_at: new Date().toISOString()
+            });
+
+            if (error) throw error;
+        }
 
         if (error) throw error;
     } catch (error) {

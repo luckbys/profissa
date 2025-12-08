@@ -75,7 +75,7 @@ const Clients: React.FC<ClientsProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const client: Client = {
-      id: isEditing && selectedClient ? selectedClient.id : Date.now().toString(),
+      id: isEditing && selectedClient ? selectedClient.id : crypto.randomUUID(),
       name: newClient.name,
       phone: newClient.phone,
       email: newClient.email || undefined,
@@ -199,8 +199,8 @@ const Clients: React.FC<ClientsProps> = ({
                 key={client.id}
                 onClick={() => setSelectedClient(client)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm whitespace-nowrap transition-all ${isBirthdayToday(client.birthday)
-                    ? 'bg-pink-500 text-white animate-pulse'
-                    : 'bg-white text-gray-700 border border-pink-200 hover:bg-pink-50'
+                  ? 'bg-pink-500 text-white animate-pulse'
+                  : 'bg-white text-gray-700 border border-pink-200 hover:bg-pink-50'
                   }`}
               >
                 <Cake size={14} />
@@ -229,8 +229,8 @@ const Clients: React.FC<ClientsProps> = ({
         <button
           onClick={() => setSelectedTag(null)}
           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${!selectedTag
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-gray-900 text-white'
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
         >
           Todos
@@ -242,8 +242,8 @@ const Clients: React.FC<ClientsProps> = ({
               key={tag.id}
               onClick={() => setSelectedTag(selectedTag === tag.id ? null : tag.id)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1 ${selectedTag === tag.id
-                  ? `${colors.bg} ${colors.text}`
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? `${colors.bg} ${colors.text}`
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
             >
               <Tag size={10} />
@@ -269,8 +269,8 @@ const Clients: React.FC<ClientsProps> = ({
                 <div className="flex items-start gap-3">
                   {/* Avatar */}
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${isBirthdayToday(client.birthday)
-                      ? 'bg-gradient-to-br from-pink-400 to-purple-500 text-white'
-                      : 'bg-brand-100 text-brand-600'
+                    ? 'bg-gradient-to-br from-pink-400 to-purple-500 text-white'
+                    : 'bg-brand-100 text-brand-600'
                     }`}>
                     {client.name.charAt(0).toUpperCase()}
                     {isBirthdayToday(client.birthday) && (
@@ -340,8 +340,8 @@ const Clients: React.FC<ClientsProps> = ({
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-xl ${isBirthdayToday(selectedClient.birthday)
-                    ? 'bg-gradient-to-br from-pink-400 to-purple-500 text-white'
-                    : 'bg-brand-100 text-brand-600'
+                  ? 'bg-gradient-to-br from-pink-400 to-purple-500 text-white'
+                  : 'bg-brand-100 text-brand-600'
                   }`}>
                   {selectedClient.name.charAt(0).toUpperCase()}
                 </div>
@@ -565,8 +565,8 @@ const Clients: React.FC<ClientsProps> = ({
                         type="button"
                         onClick={() => toggleTag(tag.id)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
-                            ? `${colors.bg} ${colors.text} ring-2 ring-offset-1 ring-${tag.color}-300`
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          ? `${colors.bg} ${colors.text} ring-2 ring-offset-1 ring-${tag.color}-300`
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                           }`}
                       >
                         {tag.label}

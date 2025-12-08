@@ -52,19 +52,42 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userEmail, 
             const finalProfession = profession === 'outros' ? customProfession :
                 PROFESSIONS.find(p => p.id === profession)?.label.split(' ').slice(1).join(' ') || profession;
 
-            // Update profile in Supabase
-            const { error } = await supabase
+            // Check if profile exists first to avoid constraint errors
+            const { data: existingProfile } = await supabase
                 .from('profiles')
-                .upsert({
-                    user_id: userId,
-                    name: name,
-                    profession: finalProfession,
-                    phone: phone,
-                    email: userEmail,
-                    updated_at: new Date().toISOString()
-                }, {
-                    onConflict: 'user_id'
-                });
+                .select('id')
+                .eq('user_id', userId)
+                .maybeSingle();
+
+            let error;
+
+            if (existingProfile) {
+                // Update existing profile
+                const result = await supabase
+                    .from('profiles')
+                    .update({
+                        name: name,
+                        profession: finalProfession,
+                        phone: phone,
+                        email: userEmail,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('user_id', userId);
+                error = result.error;
+            } else {
+                // Insert new profile
+                const result = await supabase
+                    .from('profiles')
+                    .insert({
+                        user_id: userId,
+                        name: name,
+                        profession: finalProfession,
+                        phone: phone,
+                        email: userEmail,
+                        updated_at: new Date().toISOString()
+                    });
+                error = result.error;
+            }
 
             if (error) throw error;
 
@@ -152,8 +175,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ userId, userEmail, 
                                         type="button"
                                         onClick={() => setProfession(prof.id)}
                                         className={`p-3 rounded-xl text-left transition-all ${profession === prof.id
-                                                ? 'bg-brand-600 text-white shadow-lg'
-                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            ? 'bg-brand-600 text-white shadow-lg'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                             }`}
                                     >
                                         <span className="text-sm font-medium">{prof.label}</span>

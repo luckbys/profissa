@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { supabase } from '../services/supabaseClient';
-import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, Sparkles, CheckCircle } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient';
+import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, Sparkles, CheckCircle, Wifi, WifiOff } from 'lucide-react';
 
 interface AuthScreenProps {
     onAuthSuccess: () => void;
@@ -17,8 +17,28 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthSuccess }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
+    const isConfigured = isSupabaseConfigured();
+
+    // Handle local login (when Supabase is not configured)
+    const handleLocalLogin = (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+
+        // For local mode, just save a flag and proceed
+        localStorage.setItem('profissa_local_auth', 'true');
+        localStorage.setItem('profissa_user_name', name || email.split('@')[0]);
+        onAuthSuccess();
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Use local login if Supabase is not configured
+        if (!isConfigured) {
+            handleLocalLogin(e);
+            return;
+        }
+
         setError('');
         setIsLoading(true);
 

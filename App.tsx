@@ -152,12 +152,12 @@ const App: React.FC = () => {
     );
   }
 
-  // Auth Screen (Login/Register) - only if Supabase is configured
-  if (isSupabaseConfigured && !isAuthenticated) {
-    return <AuthScreen onAuthSuccess={() => { }} />;
+  // Auth Screen (Login/Register) - always show if not authenticated
+  if (!isAuthenticated) {
+    return <AuthScreen onAuthSuccess={() => window.location.reload()} />;
   }
 
-  // Onboarding Screen - for new users
+  // Onboarding Screen - for new users (only if using Supabase)
   if (isSupabaseConfigured && needsOnboarding && user) {
     return (
       <OnboardingScreen

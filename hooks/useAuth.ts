@@ -20,13 +20,15 @@ export const useAuth = () => {
     });
 
     useEffect(() => {
-        // Skip auth if Supabase is not configured
+        // If Supabase is not configured, still require login
+        // but check if user has already logged in before (localStorage flag)
         if (!isSupabaseConfigured()) {
+            const hasLocalSession = localStorage.getItem('profissa_local_auth') === 'true';
             setAuthState({
                 user: null,
                 session: null,
                 isLoading: false,
-                isAuthenticated: true, // Allow access in offline mode
+                isAuthenticated: hasLocalSession, // Only authenticated if previously logged in
                 needsOnboarding: false
             });
             return;

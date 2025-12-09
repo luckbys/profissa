@@ -1,6 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, Client, UserProfile } from '../types';
-import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download, AlertTriangle, Lock, Unlock, Link2, PieChart } from 'lucide-react';
+import {
+  User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign,
+  CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download,
+  AlertTriangle, Lock, Unlock, Link2, PieChart, ChevronDown, ChevronRight, Settings,
+  FileText, HardDrive
+} from 'lucide-react';
 import { exportData, importData } from '../services/backupService';
 import { setPIN, removePIN, hasPIN, isAppLocked } from '../services/authService';
 import LockScreen from './LockScreen';
@@ -18,12 +23,49 @@ interface ProfileProps {
   onViewFinance?: () => void;
 }
 
+// Collapsible Section Component
+interface CollapsibleSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  badge?: string;
+}
+
+const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, icon, children, defaultOpen = false, badge }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gray-100 rounded-xl text-brand-600">
+            {icon}
+          </div>
+          <span className="font-bold text-gray-800">{title}</span>
+          {badge && (
+            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">{badge}</span>
+          )}
+        </div>
+        {isOpen ? <ChevronDown size={20} className="text-gray-400" /> : <ChevronRight size={20} className="text-gray-400" />}
+      </button>
+      {isOpen && (
+        <div className="p-4 pt-0 border-t border-gray-100">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appointments, clients, onSignOut, onViewFinance }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(userProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync formData when userProfile changes (from React Query)
   useEffect(() => {
     setFormData(userProfile);
   }, [userProfile]);
@@ -37,10 +79,8 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   const [isLockEnabled, setIsLockEnabled] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
 
-  // Stripe / Pro Modal
+  // Modals
   const [showProModal, setShowProModal] = useState(false);
-
-  // Booking Settings Modal
   const [showBookingSettings, setShowBookingSettings] = useState(false);
 
   useEffect(() => {
@@ -65,26 +105,17 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
     alert('Senha definida com sucesso! O App será bloqueado ao reiniciar.');
   };
 
-  // KPIs Calculations
+  // KPIs
   const stats = useMemo(() => {
     const completed = appointments.filter(a => a.status === 'completed');
-
     const totalEarnings = completed.reduce((acc, curr) => acc + curr.price, 0);
     const totalAppointments = completed.length;
     const totalClients = clients.length;
     const avgTicket = totalAppointments > 0 ? totalEarnings / totalAppointments : 0;
-
-    // Calculate conversion (completed vs total non-cancelled)
     const validAppointments = appointments.filter(a => a.status !== 'cancelled').length;
     const completionRate = validAppointments > 0 ? Math.round((totalAppointments / validAppointments) * 100) : 0;
 
-    return {
-      totalEarnings,
-      totalAppointments,
-      totalClients,
-      avgTicket,
-      completionRate
-    };
+    return { totalEarnings, totalAppointments, totalClients, avgTicket, completionRate };
   }, [appointments, clients]);
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -93,7 +124,6 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
     setIsEditing(false);
   };
 
-  // Separate function for branding save to avoid type issues
   const handleSaveBranding = () => {
     onUpdateProfile(formData);
   };
@@ -103,40 +133,29 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       alert('Por favor, selecione uma imagem válida.');
       return;
     }
-
-    // Validate file size (max 500KB)
     if (file.size > 500000) {
       alert('A imagem deve ter no máximo 500KB.');
       return;
     }
-
     setIsUploading(true);
-
-    // Convert to base64 (works offline, no server needed)
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64 = reader.result as string;
-      setFormData({ ...formData, logo: base64 });
+      setFormData({ ...formData, logo: reader.result as string });
       setIsUploading(false);
     };
     reader.onerror = () => {
-      alert('Erro ao ler imagem. Tente novamente.');
+      alert('Erro ao ler imagem.');
       setIsUploading(false);
     };
     reader.readAsDataURL(file);
   };
 
-  const removeLogo = () => {
-    setFormData({ ...formData, logo: undefined });
-  };
+  const removeLogo = () => setFormData({ ...formData, logo: undefined });
 
-  // Backup Handlers
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -151,15 +170,13 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsImporting(true);
     try {
       await importData(file);
-      alert('Dados restaurados com sucesso! O aplicativo será recarregado.');
+      alert('Dados restaurados! Recarregando...');
       window.location.reload();
     } catch (error) {
-      console.error(error);
-      alert('Erro ao restaurar backup. Verifique se o arquivo é válido.');
+      alert('Erro ao restaurar backup.');
     } finally {
       setIsImporting(false);
       setShowRestoreModal(false);
@@ -167,54 +184,51 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
   };
 
   return (
-    <div className="pb-24 space-y-6">
-      {/* Pin Setup Modal */}
+    <div className="pb-24 space-y-4">
+      {/* Modals */}
       {showPinSetup && (
-        <LockScreen
-          onUnlock={() => { }}
-          isSettingUp={true}
-          onPinSet={handlePinSet}
-          onCancelSetup={() => setShowPinSetup(false)}
-        />
+        <LockScreen onUnlock={() => { }} isSettingUp={true} onPinSet={handlePinSet} onCancelSetup={() => setShowPinSetup(false)} />
       )}
+      <ProPlanModal isOpen={showProModal} onClose={() => setShowProModal(false)} />
+      <BookingSettings userProfile={userProfile} isOpen={showBookingSettings} onClose={() => setShowBookingSettings(false)} />
 
-      {/* Pro Plan Modal */}
-      <ProPlanModal
-        isOpen={showProModal}
-        onClose={() => setShowProModal(false)}
-      />
-
-      <header className="flex justify-between items-center mb-2">
-        <h1 className="text-2xl font-bold text-gray-800">Meu Perfil</h1>
+      {/* Header */}
+      <header className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Meu Perfil</h1>
+          <p className="text-sm text-gray-500">Gerencie suas configurações</p>
+        </div>
         <button
-          onClick={() => isEditing ? handleSubmit({ preventDefault: () => { } } as any) : setIsEditing(true)}
-          className={`px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 transition-all ${isEditing ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+          onClick={() => isEditing ? handleSubmit() : setIsEditing(true)}
+          className={`px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${isEditing ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'}`}
         >
           {isEditing ? <><Save size={16} /> Salvar</> : <><Edit2 size={16} /> Editar</>}
         </button>
       </header>
 
-      {/* User Card */}
-      <div className="bg-gradient-to-br from-brand-600 to-brand-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-32 bg-white opacity-5 rounded-full -translate-y-16 translate-x-16"></div>
+      {/* User Card - Compact */}
+      <div className="bg-gradient-to-br from-brand-600 to-brand-800 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -translate-y-10 translate-x-10"></div>
 
         {isEditing ? (
-          <form className="space-y-3 relative z-10">
-            <div>
-              <label className="text-xs text-brand-200 uppercase font-bold">Nome</label>
-              <input
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none focus:bg-white/30"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-brand-200 uppercase font-bold">Profissão</label>
-              <input
-                value={formData.profession}
-                onChange={e => setFormData({ ...formData, profession: e.target.value })}
-                className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none focus:bg-white/30"
-              />
+          <div className="space-y-3 relative z-10">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-brand-200 uppercase font-bold">Nome</label>
+                <input
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-brand-200 uppercase font-bold">Profissão</label>
+                <input
+                  value={formData.profession}
+                  onChange={e => setFormData({ ...formData, profession: e.target.value })}
+                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -222,7 +236,7 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
                 <input
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none focus:bg-white/30"
+                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
                 />
               </div>
               <div>
@@ -230,109 +244,112 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
                 <input
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none focus:bg-white/30"
+                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
                 />
               </div>
             </div>
-          </form>
+          </div>
         ) : (
-          <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center mb-3 border-4 border-white/10 shadow-inner">
-              <User size={40} className="text-white" />
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/20">
+              <User size={32} className="text-white" />
             </div>
-            <h2 className="text-2xl font-bold">{userProfile.name}</h2>
-            <p className="text-brand-100 font-medium flex items-center gap-1.5 opacity-90 mb-4">
-              <Briefcase size={14} /> {userProfile.profession}
-            </p>
-
-            <div className="flex gap-4 text-sm text-brand-100 bg-black/20 px-4 py-2 rounded-xl backdrop-blur-sm">
-              <div className="flex items-center gap-1">
-                <Phone size={12} /> {userProfile.phone}
-              </div>
-              <div className="w-px bg-white/20 h-4"></div>
-              <div className="flex items-center gap-1">
-                <Mail size={12} /> {userProfile.email}
+            <div className="flex-1">
+              <h2 className="text-xl font-bold">{userProfile.name}</h2>
+              <p className="text-brand-100 text-sm flex items-center gap-1">
+                <Briefcase size={12} /> {userProfile.profession}
+              </p>
+              <div className="flex gap-3 mt-1 text-xs text-brand-200">
+                <span className="flex items-center gap-1"><Phone size={10} /> {userProfile.phone}</span>
+                <span className="flex items-center gap-1"><Mail size={10} /> {userProfile.email}</span>
               </div>
             </div>
           </div>
         )}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors" onClick={onViewFinance}>
+      </div>
+
+      {/* Quick Actions Grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={onViewFinance}
+          className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors text-left"
+        >
           <div className="flex items-center gap-2 mb-2">
-            <PieChart className="text-brand-600" />
-            <h2 className="text-lg font-bold text-gray-800">Financeiro</h2>
+            <div className="p-2 bg-green-100 rounded-lg"><PieChart size={18} className="text-green-600" /></div>
           </div>
-          <p className="text-sm text-gray-500">Acesse seus relatórios e despesas.</p>
+          <p className="font-bold text-gray-800">Financeiro</p>
+          <p className="text-xs text-gray-500">Relatórios e despesas</p>
+        </button>
+
+        <button
+          onClick={() => setShowBookingSettings(true)}
+          className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors text-left"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-2 bg-blue-100 rounded-lg"><Link2 size={18} className="text-blue-600" /></div>
+          </div>
+          <p className="font-bold text-gray-800">Agendamento</p>
+          <p className="text-xs text-gray-500">Link público</p>
+        </button>
+      </div>
+
+      {/* KPIs - Compact */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2 mb-3">
+          <TrendingUp size={16} className="text-brand-600" />
+          <span className="text-sm font-bold text-gray-700">Indicadores</span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          <div className="text-center p-2 bg-gray-50 rounded-xl">
+            <p className="text-lg font-bold text-gray-800">R$ {(stats.totalEarnings / 1000).toFixed(1)}k</p>
+            <p className="text-[10px] text-gray-500">Faturado</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded-xl">
+            <p className="text-lg font-bold text-gray-800">{stats.totalAppointments}</p>
+            <p className="text-[10px] text-gray-500">Serviços</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded-xl">
+            <p className="text-lg font-bold text-gray-800">{stats.totalClients}</p>
+            <p className="text-[10px] text-gray-500">Clientes</p>
+          </div>
+          <div className="text-center p-2 bg-gray-50 rounded-xl">
+            <p className="text-lg font-bold text-gray-800">{stats.completionRate}%</p>
+            <p className="text-[10px] text-gray-500">Conclusão</p>
+          </div>
         </div>
       </div>
 
-      {/* SEGURANÇA OPÇÕES */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 mb-4">
-          <ShieldCheck className="text-brand-600" />
-          <h2 className="text-lg font-bold text-gray-800">Segurança</h2>
-        </div>
-
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+      {/* Collapsible Sections */}
+      <CollapsibleSection title="Segurança" icon={<ShieldCheck size={20} />} badge={isLockEnabled ? 'Ativo' : undefined}>
+        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl mt-2">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${isLockEnabled ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
-              {isLockEnabled ? <Lock size={20} /> : <Unlock size={20} />}
+              {isLockEnabled ? <Lock size={18} /> : <Unlock size={18} />}
             </div>
             <div>
-              <h4 className="font-bold text-gray-800">Bloqueio de Tela</h4>
-              <p className="text-xs text-gray-500">{isLockEnabled ? 'Ativado' : 'Proteger com PIN'}</p>
+              <h4 className="font-semibold text-gray-800 text-sm">Bloqueio por PIN</h4>
+              <p className="text-xs text-gray-500">{isLockEnabled ? 'Proteção ativada' : 'Proteja seus dados'}</p>
             </div>
           </div>
           <button
             onClick={handleToggleLock}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition-colors ${isLockEnabled
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${isLockEnabled
               ? 'bg-red-100 text-red-600 hover:bg-red-200'
-              : 'bg-brand-600 text-white hover:bg-brand-700'
-              }`}
+              : 'bg-brand-600 text-white hover:bg-brand-700'}`}
           >
             {isLockEnabled ? 'Desativar' : 'Ativar'}
           </button>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      {/* LINK DE AGENDAMENTO ONLINE */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 mb-4">
-          <Link2 className="text-brand-600" />
-          <h2 className="text-lg font-bold text-gray-800">Agendamento Online</h2>
+      <CollapsibleSection title="Notas Fiscais" icon={<FileText size={20} />}>
+        <div className="mt-2">
+          <FiscalSettings />
         </div>
+      </CollapsibleSection>
 
-        <div className="bg-gradient-to-r from-brand-50 to-blue-50 p-4 rounded-xl border border-brand-100">
-          <p className="text-sm text-gray-700 mb-3">
-            Crie um link público para seus clientes agendarem horários diretamente pelo celular.
-          </p>
-          <button
-            onClick={() => setShowBookingSettings(true)}
-            className="w-full py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Link2 size={18} /> Configurar Link de Agendamento
-          </button>
-        </div>
-      </div>
-
-      {/* Fiscal Settings Section */}
-      <FiscalSettings />
-
-      {/* Booking Settings Modal */}
-      <BookingSettings
-        userProfile={userProfile}
-        isOpen={showBookingSettings}
-        onClose={() => setShowBookingSettings(false)}
-      />
-
-      {/* Company Branding Section */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 mb-4">
-          <Building2 size={18} className="text-gray-600" />
-          <h3 className="font-bold text-gray-800">Marca para Documentos</h3>
-        </div>
-
-        <div className="space-y-4">
-          {/* Company Name */}
+      <CollapsibleSection title="Marca & Documentos" icon={<Building2 size={20} />}>
+        <div className="space-y-4 mt-3">
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nome da Empresa</label>
             <input
@@ -344,249 +361,106 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
             />
           </div>
 
-          {/* Logo Upload */}
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Logotipo</label>
-
             {formData.logo ? (
               <div className="relative inline-block">
-                <img
-                  src={formData.logo}
-                  alt="Logo"
-                  className="h-20 object-contain rounded-xl border border-gray-200 p-2 bg-gray-50"
-                />
-                <button
-                  type="button"
-                  onClick={removeLogo}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                >
-                  <X size={14} />
+                <img src={formData.logo} alt="Logo" className="h-16 object-contain rounded-xl border border-gray-200 p-2 bg-gray-50" />
+                <button onClick={removeLogo} className="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center hover:bg-red-600">
+                  <X size={12} />
                 </button>
               </div>
             ) : (
               <button
-                type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="w-full py-6 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:border-brand-300 transition-all flex flex-col items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+                className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 hover:border-brand-300 transition-all flex flex-col items-center gap-1 disabled:opacity-50"
               >
-                {isUploading ? (
-                  <>
-                    <Loader2 size={24} className="text-brand-500 animate-spin" />
-                    <span className="text-sm font-medium">Enviando...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload size={24} className="text-gray-400" />
-                    <span className="text-sm font-medium">Clique para enviar logo</span>
-                    <span className="text-xs text-gray-400">PNG, JPG até 500KB</span>
-                  </>
-                )}
+                {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20} className="text-gray-400" />}
+                <span className="text-xs">{isUploading ? 'Enviando...' : 'Clique para enviar logo'}</span>
               </button>
             )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleLogoUpload}
-              className="hidden"
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
           </div>
 
-          {/* Save Button for branding */}
-          <button
-            type="button"
-            onClick={handleSaveBranding}
-            className="w-full py-3 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Save size={16} />
-            Salvar Configurações
+          <button onClick={handleSaveBranding} className="w-full py-2.5 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2">
+            <Save size={14} /> Salvar
           </button>
         </div>
+      </CollapsibleSection>
 
-        <p className="text-xs text-gray-400 mt-3 text-center">
-          Estas informações aparecerão nos seus orçamentos e recibos em PDF
-        </p>
-      </div>
-
-      {/* SEGURANÇA E DADOS (BACKUP) */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 mb-4">
-          <Download className="text-brand-600" />
-          <h2 className="text-lg font-bold text-gray-800">Backup e Dados</h2>
-        </div>
-
-        <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 mb-4">
-          <p className="text-sm text-blue-800 mb-2">
-            Seus dados ficam salvos apenas neste dispositivo. Faça backups regulares para não perder nada.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={isExporting}
-            className="bg-white border border-gray-300 text-gray-700 p-4 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
-          >
-            {isExporting ? <Loader2 className="animate-spin text-brand-600" /> : <Download className="text-brand-600" />}
-            <span className="font-bold text-sm">Fazer Backup</span>
-            <span className="text-[10px] text-gray-400">Exportar arquivo .json</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowRestoreModal(true)}
-            className="bg-white border border-gray-300 text-gray-700 p-4 rounded-xl flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
-          >
-            <Upload className="text-brand-600" />
-            <span className="font-bold text-sm">Restaurar Dados</span>
-            <span className="text-[10px] text-gray-400">Importar arquivo .json</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPIs Section */}
-      <div>
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1 flex items-center gap-2">
-          <TrendingUp size={16} /> Indicadores de Sucesso (Vitalício)
-        </h3>
-
-        <div className="grid grid-cols-2 gap-4">
-          {/* Total Earnings */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-green-100 rounded-lg text-green-600">
-                <DollarSign size={18} />
-              </div>
-              <span className="text-xs font-bold text-gray-400">Faturamento Total</span>
-            </div>
-            <p className="text-xl font-bold text-gray-800">R$ {stats.totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+      <CollapsibleSection title="Backup e Dados" icon={<HardDrive size={20} />}>
+        <div className="mt-3">
+          <div className="bg-blue-50 p-3 rounded-xl border border-blue-100 mb-3">
+            <p className="text-xs text-blue-800">Faça backups regulares para não perder seus dados.</p>
           </div>
-
-          {/* Average Ticket */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-blue-100 rounded-lg text-blue-600">
-                <Award size={18} />
-              </div>
-              <span className="text-xs font-bold text-gray-400">Ticket Médio</span>
-            </div>
-            <p className="text-xl font-bold text-gray-800">R$ {stats.avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-          </div>
-
-          {/* Completed Services */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-purple-100 rounded-lg text-purple-600">
-                <CalendarCheck size={18} />
-              </div>
-              <span className="text-xs font-bold text-gray-400">Serviços Feitos</span>
-            </div>
-            <p className="text-xl font-bold text-gray-800">{stats.totalAppointments}</p>
-            <p className="text-[10px] text-green-600 font-medium mt-1">Taxa de conclusão: {stats.completionRate}%</p>
-          </div>
-
-          {/* Total Clients */}
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="p-1.5 bg-orange-100 rounded-lg text-orange-600">
-                <Users size={18} />
-              </div>
-              <span className="text-xs font-bold text-gray-400">Base de Clientes</span>
-            </div>
-            <p className="text-xl font-bold text-gray-800">{stats.totalClients}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={handleExport} disabled={isExporting} className="bg-gray-50 border border-gray-200 p-3 rounded-xl flex flex-col items-center gap-1 hover:bg-gray-100 transition-colors">
+              {isExporting ? <Loader2 className="animate-spin text-brand-600" size={18} /> : <Download size={18} className="text-brand-600" />}
+              <span className="font-semibold text-xs">Fazer Backup</span>
+            </button>
+            <button onClick={() => setShowRestoreModal(true)} className="bg-gray-50 border border-gray-200 p-3 rounded-xl flex flex-col items-center gap-1 hover:bg-gray-100 transition-colors">
+              <Upload size={18} className="text-brand-600" />
+              <span className="font-semibold text-xs">Restaurar</span>
+            </button>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      {/* Subscription Banner - Dynamic */}
+      {/* Subscription Banner */}
       {userProfile.isPro ? (
-        <div className="bg-gray-900 text-white p-5 rounded-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500 rounded-full blur-3xl opacity-20 -translate-y-10 translate-x-10"></div>
-          <div className="relative z-10">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h4 className="font-bold text-lg">Plano Profissional</h4>
-                <p className="text-gray-400 text-sm">Membro Premium Ativo</p>
+        <div className="bg-gray-900 text-white p-4 rounded-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500 rounded-full blur-3xl opacity-20 -translate-y-8 translate-x-8"></div>
+          <div className="relative z-10 flex justify-between items-center">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Plano PRO</span>
+                <span className="bg-yellow-500/20 text-yellow-400 text-[10px] font-bold px-2 py-0.5 rounded-md">ATIVO</span>
               </div>
-              <span className="bg-yellow-500/20 text-yellow-400 text-xs font-bold px-2 py-1 rounded-md border border-yellow-500/30">PREMIUM</span>
+              <p className="text-xs text-gray-400 mt-1">Backup em nuvem ativado</p>
             </div>
-            <div className="mt-3 flex items-center gap-2 text-xs text-gray-300">
-              <Shield size={14} className="text-green-400" /> Backup em Nuvem Ativado
-            </div>
-            <button
-              onClick={redirectToCustomerPortal}
-              className="mt-4 w-full py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-2"
-            >
-              <ShieldCheck size={16} /> Gerenciar Assinatura
+            <button onClick={redirectToCustomerPortal} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold">
+              Gerenciar
             </button>
           </div>
         </div>
       ) : (
-        <div
-          onClick={() => setShowProModal(true)}
-          className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-5 rounded-2xl relative overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-lg"
-        >
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-500 rounded-full blur-3xl opacity-10 -translate-y-10 translate-x-10 animate-pulse"></div>
-          <div className="relative z-10">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-lg">Seja Profissional</h4>
-              <span className="bg-white/10 backdrop-blur-md text-white px-2 py-1 rounded text-xs font-bold">ASSINAR</span>
+        <div onClick={() => setShowProModal(true)} className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-2xl cursor-pointer hover:scale-[1.02] transition-transform">
+          <div className="flex justify-between items-center">
+            <div>
+              <h4 className="font-bold">Seja Profissional</h4>
+              <p className="text-xs text-gray-400 mt-1">Desbloqueie recursos avançados</p>
             </div>
-            <p className="text-gray-300 text-sm mb-3 max-w-[80%]">
-              Desbloqueie relatórios, backups automáticos e muito mais.
-            </p>
-            <div className="flex items-center gap-2 text-yellow-400 font-bold text-sm">
-              <Award size={16} />
-              <span>Experimente agora</span>
-            </div>
+            <Award size={24} className="text-yellow-400" />
           </div>
         </div>
       )}
 
-      <div className="text-center pt-4">
-        <button
-          onClick={onSignOut}
-          className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors"
-        >
+      {/* Sign Out */}
+      <div className="text-center pt-2">
+        <button onClick={onSignOut} className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors">
           Sair da conta
         </button>
-        <p className="text-xs text-gray-300 mt-2">Versão 1.0.2</p>
+        <p className="text-xs text-gray-300 mt-1">v1.0.3</p>
       </div>
 
-      {/* RESTORE MODAL */}
+      {/* Restore Modal */}
       {showRestoreModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-red-500 mb-2">
+            <div className="bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto text-red-500">
               <AlertTriangle size={24} />
             </div>
             <div className="text-center">
               <h3 className="text-xl font-bold text-gray-900">Atenção!</h3>
-              <p className="text-gray-500 text-sm mt-2">
-                Ao restaurar um backup, <strong>todos os dados atuais serão substituídos</strong>. Essa ação não pode ser desfeita.
-              </p>
+              <p className="text-gray-500 text-sm mt-2">Ao restaurar, <strong>todos os dados atuais serão substituídos</strong>.</p>
             </div>
-
-            <label className={`w-full py-3.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors flex items-center justify-center gap-2 cursor-pointer ${isImporting ? 'opacity-70 pointer-events-none' : ''}`}>
-              {isImporting ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-              <span>Selecionar Arquivo de Backup</span>
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportFile}
-                disabled={isImporting}
-              />
+            <label className={`w-full py-3 bg-red-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer ${isImporting ? 'opacity-70' : ''}`}>
+              {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+              <span>Selecionar Arquivo</span>
+              <input type="file" accept=".json" className="hidden" onChange={handleImportFile} disabled={isImporting} />
             </label>
-
-            <button
-              onClick={() => setShowRestoreModal(false)}
-              disabled={isImporting}
-              className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-            >
+            <button onClick={() => setShowRestoreModal(false)} disabled={isImporting} className="w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl font-bold">
               Cancelar
             </button>
           </div>

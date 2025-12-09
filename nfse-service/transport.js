@@ -1,58 +1,169 @@
 const axios = require('axios');
 const https = require('https');
+const { DOMParser } = require('@xmldom/xmldom');
+
+// Nacional NFS-e API Endpoints (Sistema Nacional de NFS-e - ADN)
+// IMPORTANT: Verify these URLs against official documentation
+const ENDPOINTS = {
+    homologacao: {
+        enviarDPS: 'https://sefin.nfse.gov.br/sefinnacional/homologacao/nfse',
+        consultarNFSe: 'https://sefin.nfse.gov.br/sefinnacional/homologacao/nfse',
+    },
+    producao: {
+        enviarDPS: 'https://sefin.nfse.gov.br/sefinnacional/nfse',
+        consultarNFSe: 'https://sefin.nfse.gov.br/sefinnacional/nfse',
+    }
+};
 
 async function sendDPS(signedXml, certPem, keyPem, isProduction) {
-    // URL definition based on environment
-    // WARNING: These URLs are placeholders for the National API (ADN/SEFIN)
-    // You must verify the correct endpoint in the documentation (input.md)
-    const baseUrl = isProduction
-        ? 'https://sefin.nfse.gov.br/adn/api/v1/nfse'
-        : 'https://homologacao.sefin.nfse.gov.br/adn/api/v1/nfse'; // Check documentation for real URL
+    const env = isProduction ? 'producao' : 'homologacao';
+    const baseUrl = ENDPOINTS[env].enviarDPS;
 
     // Create HTTPS Agent with Client Certificate (mTLS)
     const agent = new https.Agent({
         cert: certPem,
         key: keyPem,
-        // If the server uses a self-signed cert or specific CA chain, you might need 'ca' or 'rejectUnauthorized: false' (careful in prod)
-        rejectUnauthorized: false
+        rejectUnauthorized: false // Set to true in production with proper CA chain
     });
 
     try {
-        console.log(`Sending to ${baseUrl}...`);
+        console.log(`[NFS-e] Sending to ${baseUrl} (${env})...`);
+        console.log('[NFS-e] XML Preview:', signedXml.substring(0, 500) + '...');
 
-        // The API likely expects a specific wrapper or just the XML
-        // Assuming raw XML body with correct content type
         const response = await axios.post(baseUrl, signedXml, {
             httpsAgent: agent,
             headers: {
-                'Content-Type': 'application/xml; charset=utf-8'
-                // Add Authorization if needed (usually mTLS is the auth)
-            }
+                'Content-Type': 'application/xml; charset=utf-8',
+                'Accept': 'application/xml'
+            },
+            timeout: 30000 // 30 seconds timeout
         });
 
-        // Parse response (assuming it returns JSON or XML)
-        // For compliance with the interface the server expects:
-        return {
-            sucesso: true, // simplified
-            raw: response.data,
-            // Mocking these for now unless we parse the real return
-            // In a real scenario, you parse response.data XML/JSON to get these fields
-            numero: "123",
-            codigoVerificacao: "OK-MTLS",
-            linkPdf: "http://pdf-link"
-        };
+        console.log('[NFS-e] Response Status:', response.status);
+        console.log('[NFS-e] Response Data:', response.data);
+
+        // Parse XML Response
+        return parseNFSeResponse(response.data);
 
     } catch (error) {
-        console.error('Axios Error:', error.message);
+        console.error('[NFS-e] Axios Error:', error.message);
+
         if (error.response) {
-            console.error('Response Data:', error.response.data);
+            console.error('[NFS-e] Response Status:', error.response.status);
+            console.error('[NFS-e] Response Data:', error.response.data);
+
+            // Try to parse error response
+            const errorData = parseNFSeResponse(error.response.data);
+            if (errorData.erro) {
+                return errorData;
+            }
+
             return {
                 sucesso: false,
                 erro: `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
             };
         }
-        throw error;
+
+        // Network or timeout error
+        return {
+            sucesso: false,
+            erro: error.message || 'Erro de comunicação com o servidor da SEFAZ'
+        };
     }
 }
 
-module.exports = { sendDPS };
+function parseNFSeResponse(xmlData) {
+    try {
+        // If response is already an object (JSON), handle it
+        if (typeof xmlData === 'object') {
+            if (xmlData.sucesso === false || xmlData.erro) {
+                return { sucesso: false, erro: xmlData.erro || 'Erro desconhecido' };
+            }
+            return xmlData;
+        }
+
+        // Parse XML
+        const doc = new DOMParser().parseFromString(xmlData, 'text/xml');
+
+        // Check for errors first
+        const erroNode = doc.getElementsByTagName('xMotivo')[0] ||
+            doc.getElementsByTagName('Mensagem')[0] ||
+            doc.getElementsByTagName('descricao')[0];
+
+        if (erroNode && erroNode.textContent) {
+            const cStatNode = doc.getElementsByTagName('cStat')[0];
+            const codigo = cStatNode ? cStatNode.textContent : 'ERRO';
+
+            // Common success codes: 100, 104, etc.
+            if (codigo === '100' || codigo === '104') {
+                // Success - continue to extract data
+            } else {
+                return {
+                    sucesso: false,
+                    erro: `[${codigo}] ${erroNode.textContent}`
+                };
+            }
+        }
+
+        // Extract success data
+        const numeroNFSe = getNodeText(doc, 'NumeroNFSe') ||
+            getNodeText(doc, 'Numero') ||
+            getNodeText(doc, 'nNFSe');
+
+        const codigoVerificacao = getNodeText(doc, 'CodigoVerificacao') ||
+            getNodeText(doc, 'CodVerif');
+
+        const linkPdf = getNodeText(doc, 'LinkNFSe') ||
+            getNodeText(doc, 'link') ||
+            getNodeText(doc, 'urlPdf');
+
+        const chaveNFSe = getNodeText(doc, 'ChNFSe') ||
+            getNodeText(doc, 'chave');
+
+        // If we got a numero, it's a success
+        if (numeroNFSe) {
+            return {
+                sucesso: true,
+                numero: numeroNFSe,
+                codigoVerificacao: codigoVerificacao || '',
+                linkPdf: linkPdf || '',
+                chaveNFSe: chaveNFSe || '',
+                raw: xmlData
+            };
+        }
+
+        // Check for authorization indicators
+        const autorizadaNode = doc.getElementsByTagName('NFSe')[0];
+        if (autorizadaNode) {
+            return {
+                sucesso: true,
+                numero: 'AUTORIZADA',
+                codigoVerificacao: '',
+                linkPdf: '',
+                raw: xmlData
+            };
+        }
+
+        // Fallback - can't determine success
+        return {
+            sucesso: false,
+            erro: 'Resposta não reconhecida do servidor',
+            raw: xmlData
+        };
+
+    } catch (parseError) {
+        console.error('[NFS-e] Parse Error:', parseError.message);
+        return {
+            sucesso: false,
+            erro: 'Erro ao processar resposta: ' + parseError.message,
+            raw: xmlData
+        };
+    }
+}
+
+function getNodeText(doc, tagName) {
+    const node = doc.getElementsByTagName(tagName)[0];
+    return node ? node.textContent : null;
+}
+
+module.exports = { sendDPS, parseNFSeResponse };

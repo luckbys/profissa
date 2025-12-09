@@ -14,6 +14,7 @@ import InvoiceTemplate from './InvoiceTemplate';
 import DocumentCustomizer, { DocumentCustomization, DEFAULT_CUSTOMIZATION } from './DocumentCustomizer';
 import { fiscalService } from '../services/fiscalService';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../contexts/ToastContext';
 
 interface DocumentGeneratorProps {
     clients: Client[];
@@ -34,6 +35,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     const [selectedClientId, setSelectedClientId] = useState(initialClientId);
     const [type, setType] = useState<'quote' | 'receipt' | 'nfse'>(initialType);
     const { user } = useAuth();
+    const { showToast } = useToast();
 
     // Reset state when props change
     useEffect(() => {
@@ -97,35 +99,37 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         if (!selectedClientId || items.length === 0) return;
 
         if (!user?.id) {
-            alert("Erro de autenticação. Tente recarregar a página.");
+            showToast('Erro de autenticação', 'Tente recarregar a página.', 'error');
             return;
         }
 
-        const confirmEmission = window.confirm("Confirma a emissão da Nota Fiscal para este cliente? Isso criará um rascunho de RPS.");
+        const confirmEmission = window.confirm("Confirma a emissão da Nota Fiscal para este cliente?");
         if (!confirmEmission) return;
 
         try {
+            setIsEmitting(true);
             const draft = await fiscalService.createInvoiceDraft(user.id, null, total, selectedClientId);
 
             if (draft) {
-                setIsEmitting(true);
                 try {
-                    await fiscalService.emitNFSe(draft.id);
-                    setType('nfse');
-                    alert("Nota Fiscal Emitida com Sucesso!");
-                } catch (emitError) {
+                    const result = await fiscalService.emitNFSe(draft.id);
+                    if (result.sucesso) {
+                        showToast('Nota Fiscal Emitida!', `Número: ${result.numero || 'Em processamento'}`, 'success');
+                    } else {
+                        showToast('Falha na Emissão', result.erro || 'Erro desconhecido', 'error');
+                    }
+                } catch (emitError: any) {
                     console.error(emitError);
-                    alert("Rascunho criado, mas houve erro na emissão. Verifique o histórico.");
+                    showToast('Erro na Emissão', emitError.message || 'Verifique o histórico.', 'error');
                 } finally {
-                    setIsEmitting(false);
-                    // Ideally refresh history here or navigate to it
                     if (onNavigateToHistory) onNavigateToHistory();
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
+            showToast('Erro Crítico', 'Não foi possível criar o rascunho da nota.', 'error');
+        } finally {
             setIsEmitting(false);
-            alert("Erro crítico ao criar rascunho de nota.");
         }
     };
 

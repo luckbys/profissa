@@ -3,8 +3,17 @@ import { supabase } from './supabaseClient';
 export interface FiscalConfig {
     user_id: string;
     certificate_path: string | null;
+    certificate_password?: string;
     municipal_params: any;
     environment: 'homologation' | 'production';
+    // Campos fiscais adicionais
+    cnpj?: string;
+    inscricao_municipal?: string;
+    codigo_municipio?: string;
+    aliquota_iss?: number;
+    codigo_servico?: string;
+    codigo_tributacao_nacional?: string;
+    razao_social?: string;
 }
 
 export interface NFS_e {
@@ -66,8 +75,9 @@ export const fiscalService = {
     async emitNFSe(invoiceId: string) {
         try {
             // New logic: Call Node.js Microservice
-            // For local dev, assuming running on port 3000
-            const response = await fetch('http://localhost:3000/emit-nfse', {
+            // Use environment variable or default to localhost:4000
+            const serviceUrl = import.meta.env.VITE_NFSE_SERVICE_URL || 'http://localhost:4000';
+            const response = await fetch(`${serviceUrl}/emit-nfse`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -75,12 +85,13 @@ export const fiscalService = {
                 body: JSON.stringify({ invoiceId })
             });
 
+            const result = await response.json();
+
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Falha ao conectar com serviço de emissão');
+                throw new Error(result.erro || 'Falha ao conectar com serviço de emissão');
             }
 
-            return await response.json();
+            return result;
 
             /* Old Edge Function Call
             const { data, error } = await supabase.functions.invoke('emit-nfse', {
@@ -133,6 +144,19 @@ export const fiscalService = {
             .upsert({
                 user_id: userId,
                 environment: env,
+                updated_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+    },
+
+    // 7. Update Fiscal Data (CNPJ, IM, etc.)
+    async updateFiscalData(userId: string, data: Partial<FiscalConfig>) {
+        const { error } = await supabase
+            .from('fiscal_config')
+            .upsert({
+                user_id: userId,
+                ...data,
                 updated_at: new Date().toISOString()
             });
 

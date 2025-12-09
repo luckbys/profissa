@@ -13,9 +13,10 @@ interface ProfileProps {
   onUpdateProfile: (profile: UserProfile) => void;
   appointments: Appointment[];
   clients: Client[];
+  onSignOut: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appointments, clients }) => {
+const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appointments, clients, onSignOut }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(userProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -55,8 +56,8 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
     }
   };
 
-  const handlePinSet = (pin: string) => {
-    setPIN(pin);
+  const handlePinSet = async (pin: string) => {
+    await setPIN(pin);
     setIsLockEnabled(true);
     setShowPinSetup(false);
     alert('Senha definida com sucesso! O App será bloqueado ao reiniciar.');
@@ -534,7 +535,10 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
       )}
 
       <div className="text-center pt-4">
-        <button className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors">
+        <button
+          onClick={onSignOut}
+          className="text-red-500 text-sm font-medium hover:text-red-600 transition-colors"
+        >
           Sair da conta
         </button>
         <p className="text-xs text-gray-300 mt-2">Versão 1.0.2</p>

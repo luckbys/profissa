@@ -16,8 +16,19 @@ CREATE TABLE IF NOT EXISTS profiles (
     company_name TEXT,
     is_pro BOOLEAN DEFAULT FALSE,
     subscription_status TEXT DEFAULT 'free',
+    credits INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Credit Transactions table
+CREATE TABLE IF NOT EXISTS credit_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    amount INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('purchase', 'usage', 'bonus', 'refund')),
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Clients table
@@ -145,6 +156,10 @@ CREATE POLICY "Users can delete own goals" ON goals FOR DELETE USING (auth.uid()
 -- Achievements policies
 CREATE POLICY "Users can view own achievements" ON achievements FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own achievements" ON achievements FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Credit Transactions policies
+CREATE POLICY "Users can view own transactions" ON credit_transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own transactions" ON credit_transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_clients_user_id ON clients(user_id);

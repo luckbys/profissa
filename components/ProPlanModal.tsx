@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, Shield, Zap, TrendingUp, Crown } from 'lucide-react';
 import { redirectToCheckout } from '../services/stripeService';
+import SwipeableModal from './SwipeableModal';
 
 interface ProPlanModalProps {
     isOpen: boolean;
@@ -9,8 +10,6 @@ interface ProPlanModalProps {
 
 const ProPlanModal: React.FC<ProPlanModalProps> = ({ isOpen, onClose }) => {
     const [isLoading, setIsLoading] = useState(false);
-
-    if (!isOpen) return null;
 
     const handleSubscribe = async () => {
         setIsLoading(true);
@@ -21,17 +20,17 @@ const ProPlanModal: React.FC<ProPlanModalProps> = ({ isOpen, onClose }) => {
         }, 1000);
     };
 
+    // Note: isOpen check is handled by SwipeableModal internally somewhat, 
+    // but better passed as prop. SwipeableModal expects isOpen.
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-gray-900/70 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Modal Content */}
-            <div className="relative bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
-
+        <SwipeableModal
+            isOpen={isOpen}
+            onClose={onClose}
+            showCloseButton={false}
+            className="p-0 bg-transparent shadow-none" // Transparent wrapper for custom styling
+        >
+            <div className="bg-white rounded-2xl w-full overflow-hidden shadow-2xl">
                 {/* Header Image/Banner */}
                 <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500 rounded-full blur-3xl opacity-20 -translate-y-10 translate-x-10"></div>
@@ -85,7 +84,7 @@ const ProPlanModal: React.FC<ProPlanModalProps> = ({ isOpen, onClose }) => {
                     </p>
                 </div>
             </div>
-        </div>
+        </SwipeableModal>
     );
 };
 

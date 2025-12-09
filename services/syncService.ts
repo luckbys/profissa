@@ -253,6 +253,8 @@ export const syncProfile = async (userId: string): Promise<UserProfile | null> =
 
         if (profile) {
             const userProfile: UserProfile = {
+                id: profile.id,
+                userId: profile.user_id,
                 name: profile.name || '',
                 profession: profile.profession || '',
                 phone: profile.phone || '',
@@ -260,7 +262,8 @@ export const syncProfile = async (userId: string): Promise<UserProfile | null> =
                 logo: profile.logo || '',
                 companyName: profile.company_name || '',
                 isPro: profile.is_pro || false,
-                subscriptionStatus: profile.is_pro ? 'pro' : 'free'
+                subscriptionStatus: profile.is_pro ? 'pro' : 'free',
+                credits: profile.credits || 0
             };
 
             localStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(userProfile));
@@ -322,6 +325,22 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
     } catch (error) {
         console.error('Error saving profile to Supabase:', error);
         addToSyncQueue('profiles', 'update', { userId, profile });
+    }
+};
+
+export const consumeDocumentCredit = async (userId: string): Promise<boolean> => {
+    if (!isSupabaseConfigured()) {
+        return true; // Assume success offline, sync later (or logic to block)
+    }
+
+    try {
+        const { data, error } = await supabase.rpc('consume_document_credit', { user_id: userId });
+
+        if (error) throw error;
+        return data as boolean;
+    } catch (error) {
+        console.error('Error consuming credit in Supabase:', error);
+        return false;
     }
 };
 

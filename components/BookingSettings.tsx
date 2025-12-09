@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link2, Copy, Check, Plus, X, Trash2, Settings, ExternalLink } from 'lucide-react';
 import { getBookingConfig, saveBookingConfig, generateBookingLink, BookingConfig } from '../services/bookingService';
 import { UserProfile } from '../types';
+import SwipeableModal from './SwipeableModal';
 
 interface BookingSettingsProps {
     userProfile: UserProfile;
@@ -82,13 +83,18 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
         setGeneratedLink(link);
     };
 
-    if (!isOpen) return null;
+    // if (!isOpen) return null; // Handled by SwipeableModal
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden shadow-2xl">
+        <SwipeableModal
+            isOpen={isOpen}
+            onClose={onClose}
+            showCloseButton={false}
+            className="max-h-[85vh] p-0"
+        >
+            <div className="flex flex-col h-full">
                 {/* Header */}
-                <div className="bg-gradient-to-r from-brand-600 to-brand-700 p-4 flex justify-between items-center">
+                <div className="bg-gradient-to-r from-brand-600 to-brand-700 p-4 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2 text-white">
                         <Link2 size={20} />
                         <h2 className="font-bold">Link de Agendamento</h2>
@@ -98,7 +104,7 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6 overflow-y-auto max-h-[calc(90vh-60px)]">
+                <div className="p-6 space-y-6 overflow-y-auto">
                     {/* Info */}
                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                         <p className="text-sm text-blue-800">
@@ -211,7 +217,7 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
                     )}
                 </div>
             </div>
-        </div>
+        </SwipeableModal>
     );
 };
 

@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Client, Appointment } from '../types';
+import SwipeableModal from './SwipeableModal';
 import {
   Plus, Search, Phone, MapPin, FileText, Download, X,
   Tag, Cake, Calendar, ChevronRight, Star, Gift, Edit2,
@@ -19,6 +20,7 @@ interface ClientsProps {
   onAddClient: (client: Client) => void;
   onUpdateClient?: (client: Client) => void;
   onDeleteClient?: (id: string) => void;
+  onGenerateDocument?: (clientId: string, type: 'quote' | 'receipt') => void;
 }
 
 const Clients: React.FC<ClientsProps> = ({
@@ -26,7 +28,8 @@ const Clients: React.FC<ClientsProps> = ({
   appointments,
   onAddClient,
   onUpdateClient,
-  onDeleteClient
+  onDeleteClient,
+  onGenerateDocument
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,6 +124,11 @@ const Clients: React.FC<ClientsProps> = ({
       onDeleteClient(id);
       setSelectedClient(null);
     }
+  };
+
+  const closeModal = () => {
+    setSelectedClient(null);
+    setIsModalOpen(false);
   };
 
   const toggleTag = (tagId: string) => {
@@ -333,11 +341,17 @@ const Clients: React.FC<ClientsProps> = ({
       </div>
 
       {/* Client Detail Modal */}
-      {selectedClient && !isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-md rounded-t-3xl max-h-[85vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+      {/* Client Detail Modal */}
+      <SwipeableModal
+        isOpen={!!selectedClient && !isModalOpen}
+        onClose={closeModal}
+        className="max-h-[85vh]"
+        showCloseButton={false}
+      >
+        {selectedClient && (
+          <div className="space-y-6">
+            {/* Custom Header */}
+            <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-xl ${isBirthdayToday(selectedClient.birthday)
                   ? 'bg-gradient-to-br from-pink-400 to-purple-500 text-white'
@@ -351,7 +365,7 @@ const Clients: React.FC<ClientsProps> = ({
                 </div>
               </div>
               <button
-                onClick={() => setSelectedClient(null)}
+                onClick={closeModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X size={20} className="text-gray-500" />
@@ -361,22 +375,47 @@ const Clients: React.FC<ClientsProps> = ({
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Quick Actions */}
-              <div className="flex gap-2">
+              {/* Quick Actions */}
+              <div className="grid grid-cols-2 gap-2">
                 <a
                   href={`https://wa.me/${selectedClient.phone.replace(/\D/g, '')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 bg-green-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-600 transition-colors"
+                  className="col-span-2 bg-green-500 text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-600 transition-colors"
                 >
                   <Phone size={18} />
                   WhatsApp
                 </a>
                 <button
+                  onClick={() => {
+                    if (onGenerateDocument) {
+                      onGenerateDocument(selectedClient.id, 'quote');
+                      setIsModalOpen(false); // Close modal? Maybe keep it open or close it. Usually navigating away closes it effectively or better explicitly close it.
+                      // Actually navigating changes view so this component unmounts/hides.
+                    }
+                  }}
+                  className="bg-blue-50 text-blue-600 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                >
+                  <FileText size={18} />
+                  Orçamento
+                </button>
+                <button
+                  onClick={() => {
+                    if (onGenerateDocument) {
+                      onGenerateDocument(selectedClient.id, 'receipt');
+                    }
+                  }}
+                  className="bg-green-50 text-green-600 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"
+                >
+                  <Download size={18} />
+                  Recibo
+                </button>
+                <button
                   onClick={() => handleEditClient(selectedClient)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                  className="col-span-2 bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
                 >
                   <Edit2 size={18} />
-                  Editar
+                  Editar Dados
                 </button>
               </div>
 
@@ -491,151 +530,153 @@ const Clients: React.FC<ClientsProps> = ({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </SwipeableModal>
 
       {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-800">
-                {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
-              </h2>
-              <button
-                onClick={resetForm}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X size={20} className="text-gray-500" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-                <input
-                  required
-                  type="text"
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
-                  value={newClient.name}
-                  onChange={e => setNewClient({ ...newClient, name: e.target.value })}
-                />
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp *</label>
-                <input
-                  required
-                  type="tel"
-                  placeholder="11999999999"
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
-                  value={newClient.phone}
-                  onChange={e => setNewClient({ ...newClient, phone: e.target.value })}
-                />
-              </div>
-
-              {/* Birthday */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                  <Cake size={14} className="text-pink-500" /> Aniversário
-                </label>
-                <input
-                  type="text"
-                  placeholder="MM-DD (ex: 12-25)"
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
-                  value={newClient.birthday}
-                  onChange={e => setNewClient({ ...newClient, birthday: e.target.value })}
-                />
-              </div>
-
-              {/* Tags */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
-                  <Tag size={14} className="text-gray-400" /> Tags
-                </label>
-                <div className="flex gap-2 flex-wrap">
-                  {DEFAULT_CLIENT_TAGS.map(tag => {
-                    const isSelected = newClient.tags.includes(tag.id);
-                    const colors = getTagColorClasses(tag.color);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => toggleTag(tag.id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
-                          ? `${colors.bg} ${colors.text} ring-2 ring-offset-1 ring-${tag.color}-300`
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                      >
-                        {tag.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
-                  value={newClient.email}
-                  onChange={e => setNewClient({ ...newClient, email: e.target.value })}
-                />
-              </div>
-
-              {/* Address */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                  <MapPin size={14} className="text-gray-400" /> Endereço
-                </label>
-                <input
-                  type="text"
-                  placeholder="Rua, número, bairro..."
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
-                  value={newClient.address}
-                  onChange={e => setNewClient({ ...newClient, address: e.target.value })}
-                />
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
-                  <FileText size={14} className="text-gray-400" /> Notas
-                </label>
-                <textarea
-                  placeholder="Preferências, avisos, etc."
-                  rows={3}
-                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none resize-none"
-                  value={newClient.notes}
-                  onChange={e => setNewClient({ ...newClient, notes: e.target.value })}
-                />
-              </div>
-
-              {/* Submit */}
-              <div className="flex gap-2 pt-2">
+      {
+        isModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-800">
+                  {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
+                </h2>
                 <button
-                  type="button"
                   onClick={resetForm}
-                  className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors shadow-lg shadow-brand-200"
-                >
-                  {isEditing ? 'Salvar' : 'Adicionar'}
+                  <X size={20} className="text-gray-500" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    value={newClient.name}
+                    onChange={e => setNewClient({ ...newClient, name: e.target.value })}
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp *</label>
+                  <input
+                    required
+                    type="tel"
+                    placeholder="11999999999"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    value={newClient.phone}
+                    onChange={e => setNewClient({ ...newClient, phone: e.target.value })}
+                  />
+                </div>
+
+                {/* Birthday */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <Cake size={14} className="text-pink-500" /> Aniversário
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="MM-DD (ex: 12-25)"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    value={newClient.birthday}
+                    onChange={e => setNewClient({ ...newClient, birthday: e.target.value })}
+                  />
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1">
+                    <Tag size={14} className="text-gray-400" /> Tags
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {DEFAULT_CLIENT_TAGS.map(tag => {
+                      const isSelected = newClient.tags.includes(tag.id);
+                      const colors = getTagColorClasses(tag.color);
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleTag(tag.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isSelected
+                            ? `${colors.bg} ${colors.text} ring-2 ring-offset-1 ring-${tag.color}-300`
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                        >
+                          {tag.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    value={newClient.email}
+                    onChange={e => setNewClient({ ...newClient, email: e.target.value })}
+                  />
+                </div>
+
+                {/* Address */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <MapPin size={14} className="text-gray-400" /> Endereço
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Rua, número, bairro..."
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none"
+                    value={newClient.address}
+                    onChange={e => setNewClient({ ...newClient, address: e.target.value })}
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                    <FileText size={14} className="text-gray-400" /> Notas
+                  </label>
+                  <textarea
+                    placeholder="Preferências, avisos, etc."
+                    rows={3}
+                    className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none resize-none"
+                    value={newClient.notes}
+                    onChange={e => setNewClient({ ...newClient, notes: e.target.value })}
+                  />
+                </div>
+
+                {/* Submit */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex-1 py-3 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors shadow-lg shadow-brand-200"
+                  >
+                    {isEditing ? 'Salvar' : 'Adicionar'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

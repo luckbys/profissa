@@ -1,11 +1,35 @@
-export const setPIN = (pin: string): void => {
-    localStorage.setItem('app_pin', pin);
+// Helper to hash PIN using SHA-256
+const hashPIN = async (pin: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+export const setPIN = async (pin: string): Promise<void> => {
+    const hashed = await hashPIN(pin);
+    localStorage.setItem('app_pin', hashed);
     localStorage.setItem('is_app_locked', 'true'); // Auto-lock on set
 };
 
-export const verifyPIN = (pin: string): boolean => {
+export const verifyPIN = async (pin: string): Promise<boolean> => {
     const stored = localStorage.getItem('app_pin');
-    return stored === pin;
+    if (!stored) return false;
+
+    // Migration Check: If stored PIN is length 4 (legacy plain text), verification differs
+    if (stored.length === 4) {
+        if (stored === pin) {
+            // Upgrade security automatically
+            await setPIN(pin);
+            return true;
+        }
+        return false;
+    }
+
+    // Standard Check (Hash)
+    const inputHash = await hashPIN(pin);
+    return stored === inputHash;
 };
 
 export const hasPIN = (): boolean => {

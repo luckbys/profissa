@@ -23,6 +23,7 @@ interface FinanceProps {
   onViewHistory?: () => void;
   initialTab?: 'overview' | 'documents' | 'expenses';
   initialType?: 'quote' | 'receipt';
+  initialClientId?: string;
   appointments?: Appointment[];
 }
 
@@ -32,20 +33,22 @@ const Finance: React.FC<FinanceProps> = ({
   onViewHistory,
   initialTab = 'overview',
   initialType = 'quote',
+  initialClientId = '',
   appointments = []
 }) => {
   // Tab State
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'expenses'>(initialTab);
 
   // Document State
-  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState(initialClientId);
   const [type, setType] = useState<'quote' | 'receipt'>(initialType);
 
   // Effect to update state if props change (re-navigation)
   useEffect(() => {
     setActiveTab(initialTab);
     if (initialType) setType(initialType);
-  }, [initialTab, initialType]);
+    if (initialClientId) setSelectedClientId(initialClientId);
+  }, [initialTab, initialType, initialClientId]);
 
   const [items, setItems] = useState<any[]>([]); // Using any for simplicity in this huge file refactor
   const [newItemDesc, setNewItemDesc] = useState('');
@@ -62,7 +65,7 @@ const Finance: React.FC<FinanceProps> = ({
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashFlow, setCashFlow] = useState({ revenue: 0, expenses: 0, profit: 0 });
 
-  const { subscription, canGenerateDocument, useCredit, upgradeToPro } = useSubscription();
+  const { subscription, canGenerateDocument, useCredit, upgradeToPro } = useSubscription(userProfile);
   const selectedClient = clients.find(c => c.id === selectedClientId);
 
   const refreshData = async () => {

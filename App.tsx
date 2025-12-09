@@ -64,6 +64,7 @@ const App: React.FC = () => {
   // Navigation State for FAB actions
   const [financeInitialTab, setFinanceInitialTab] = useState<'overview' | 'documents' | 'expenses'>('overview');
   const [financeInitialType, setFinanceInitialType] = useState<'quote' | 'receipt'>('quote');
+  const [financeInitialClientId, setFinanceInitialClientId] = useState<string>('');
 
   const {
     clients,
@@ -131,10 +132,18 @@ const App: React.FC = () => {
     setIsFabOpen(false);
   };
 
+  const handleGenerateDocument = (clientId: string, type: 'quote' | 'receipt') => {
+    setFinanceInitialTab('documents');
+    setFinanceInitialType(type);
+    setFinanceInitialClientId(clientId);
+    setCurrentView('finance');
+  };
+
   // Reset finance props when navigating manually
   const handleNavigation = (view: ViewState) => {
     if (view === 'finance') {
       setFinanceInitialTab('overview'); // Default view
+      setFinanceInitialClientId('');
     }
     setCurrentView(view);
     setIsFabOpen(false);
@@ -211,6 +220,7 @@ const App: React.FC = () => {
             onAddClient={handleAddClient}
             onUpdateClient={async (c) => await updateClient(c)}
             onDeleteClient={async (id) => await removeClient(id)}
+            onGenerateDocument={handleGenerateDocument}
           />
         );
       case 'calendar':
@@ -230,6 +240,7 @@ const App: React.FC = () => {
             onViewHistory={() => setCurrentView('history')}
             initialTab={financeInitialTab}
             initialType={financeInitialType}
+            initialClientId={financeInitialClientId}
             appointments={appointments}
           />
         );
@@ -240,6 +251,7 @@ const App: React.FC = () => {
             onUpdateProfile={setUserProfile}
             appointments={appointments}
             clients={clients}
+            onSignOut={signOut}
           />
         );
       case 'coach':

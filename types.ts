@@ -47,7 +47,18 @@ export interface Expense {
   notes?: string;
 }
 
+export interface CreditTransaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'purchase' | 'usage' | 'bonus' | 'refund';
+  description?: string;
+  createdAt: string;
+}
+
 export interface UserProfile {
+  id?: string;
+  userId?: string;
   name: string;
   profession: string;
   phone: string;
@@ -56,6 +67,7 @@ export interface UserProfile {
   logo?: string; // base64 encoded image
   isPro?: boolean;
   subscriptionStatus?: 'free' | 'pro';
+  credits?: number;
 }
 
 export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history' | 'coach' | 'booking';

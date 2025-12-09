@@ -29,35 +29,39 @@ const LockScreen: React.FC<LockScreenProps> = ({ onUnlock, isSettingUp = false, 
     // Effect to check PIN when it reaches 4 digits
     useEffect(() => {
         if (pin.length === 4) {
-            if (isSettingUp) {
-                // Setup Logic
-                if (!confirming) {
-                    setFirstPin(pin);
-                    setConfirming(true);
-                    setPin('');
+            const checkPin = async () => {
+                if (isSettingUp) {
+                    // Setup Logic
+                    if (!confirming) {
+                        setFirstPin(pin);
+                        setConfirming(true);
+                        setPin('');
+                    } else {
+                        // Confirming logic
+                        if (pin === firstPin) {
+                            onPinSet?.(pin);
+                        } else {
+                            setError(true);
+                            setPin('');
+                            setConfirming(false);
+                            setFirstPin('');
+                            alert('PIN não confere. Tente novamente.');
+                        }
+                    }
                 } else {
-                    // Confirming logic
-                    if (pin === firstPin) {
-                        onPinSet?.(pin);
+                    // Unlock Logic
+                    const isValid = await verifyPIN(pin);
+                    if (isValid) {
+                        onUnlock();
                     } else {
                         setError(true);
                         setPin('');
-                        setConfirming(false);
-                        setFirstPin('');
-                        alert('PIN não confere. Tente novamente.');
+                        // Vibrate if mobile
+                        if (navigator.vibrate) navigator.vibrate(200);
                     }
                 }
-            } else {
-                // Unlock Logic
-                if (verifyPIN(pin)) {
-                    onUnlock();
-                } else {
-                    setError(true);
-                    setPin('');
-                    // Vibrate if mobile
-                    if (navigator.vibrate) navigator.vibrate(200);
-                }
-            }
+            };
+            checkPin();
         }
     }, [pin, isSettingUp, confirming, firstPin, onUnlock, onPinSet]);
 
@@ -85,8 +89,8 @@ const LockScreen: React.FC<LockScreenProps> = ({ onUnlock, isSettingUp = false, 
                     <div
                         key={i}
                         className={`w-4 h-4 rounded-full transition-all duration-200 ${i < pin.length
-                                ? (error ? 'bg-red-500' : 'bg-brand-400 scale-125')
-                                : 'bg-gray-700'
+                            ? (error ? 'bg-red-500' : 'bg-brand-400 scale-125')
+                            : 'bg-gray-700'
                             }`}
                     />
                 ))}

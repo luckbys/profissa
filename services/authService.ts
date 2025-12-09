@@ -1,10 +1,22 @@
 // Helper to hash PIN using SHA-256
 const hashPIN = async (pin: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Fallback for non-secure contexts (http) where crypto.subtle is undefined
+    if (!globalThis.crypto?.subtle) {
+        console.warn('Crypto API not available. Using basic encoding.');
+        // Simple base64 encoding as fallback (not secure hashing, but functional for non-HTTPS dev)
+        return btoa('hashed_' + pin);
+    }
+
+    try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(pin);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        console.error('Hashing error:', e);
+        return btoa('hashed_' + pin); // Fallback
+    }
 };
 
 export const setPIN = async (pin: string): Promise<void> => {

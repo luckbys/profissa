@@ -357,32 +357,50 @@ export const syncTemplates = async (userId: string): Promise<ServiceTemplate[]> 
     }
 };
 
+// Helper to check UUID validity
+const isValidUUID = (uuid: string) => {
+    const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return regex.test(uuid);
+};
+
 export const saveTemplateToSupabase = async (userId: string, template: ServiceTemplate): Promise<void> => {
+    // Ensure we have a valid UUID
+    let templateToSave = { ...template };
+    if (!isValidUUID(templateToSave.id)) {
+        console.warn('Invalid UUID detected, generating new one for sync:', templateToSave.id);
+        templateToSave.id = crypto.randomUUID();
+    }
+
     if (!isSupabaseConfigured()) {
-        addToSyncQueue('service_templates', 'insert', { userId, template });
+        addToSyncQueue('service_templates', 'insert', { userId, template: templateToSave });
         return;
     }
 
     try {
         const { error } = await supabase.from('service_templates').upsert({
-            id: template.id,
+            id: templateToSave.id,
             user_id: userId,
-            name: template.name,
-            description: template.description,
-            price: template.price,
-            category: template.category,
-            is_default: template.isDefault,
+            name: templateToSave.name,
+            description: templateToSave.description,
+            price: templateToSave.price,
+            category: templateToSave.category,
+            is_default: templateToSave.isDefault,
             updated_at: new Date().toISOString()
         });
 
         if (error) throw error;
     } catch (error) {
         console.error('Error saving template to Supabase:', error);
-        addToSyncQueue('service_templates', 'insert', { userId, template });
+        addToSyncQueue('service_templates', 'insert', { userId, template: templateToSave });
     }
 };
 
 export const deleteTemplateFromSupabase = async (templateId: string): Promise<void> => {
+    if (!isValidUUID(templateId)) {
+        console.warn('Skipping deletion of non-UUID template:', templateId);
+        return;
+    }
+
     if (!isSupabaseConfigured()) {
         addToSyncQueue('service_templates', 'delete', { templateId });
         return;

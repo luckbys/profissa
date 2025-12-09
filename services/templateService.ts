@@ -1,4 +1,6 @@
 import { ServiceTemplate } from '../types/serviceTemplate';
+import { getCurrentUser } from './supabaseClient';
+import { saveTemplateToSupabase, deleteTemplateFromSupabase } from './syncService';
 
 const TEMPLATES_KEY = 'gerente_bolso_service_templates';
 
@@ -12,34 +14,54 @@ export const getTemplates = (): ServiceTemplate[] => {
     }
 };
 
+
+
 // Save a new template
-export const saveTemplate = (template: ServiceTemplate): void => {
+export const saveTemplate = async (template: ServiceTemplate): Promise<void> => {
     try {
         const existing = getTemplates();
         const updated = [...existing, template];
         localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+
+        // Sync to Supabase
+        const user = await getCurrentUser();
+        if (user) {
+            await saveTemplateToSupabase(user.id, template);
+        }
     } catch (error) {
         console.error('Failed to save template:', error);
     }
 };
 
 // Update a template
-export const updateTemplate = (template: ServiceTemplate): void => {
+export const updateTemplate = async (template: ServiceTemplate): Promise<void> => {
     try {
         const templates = getTemplates();
         const updated = templates.map(t => t.id === template.id ? template : t);
         localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+
+        // Sync to Supabase
+        const user = await getCurrentUser();
+        if (user) {
+            await saveTemplateToSupabase(user.id, template);
+        }
     } catch (error) {
         console.error('Failed to update template:', error);
     }
 };
 
 // Delete a template
-export const deleteTemplate = (id: string): void => {
+export const deleteTemplate = async (id: string): Promise<void> => {
     try {
         const templates = getTemplates();
         const updated = templates.filter(t => t.id !== id);
         localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+
+        // Sync to Supabase
+        const user = await getCurrentUser();
+        if (user) {
+            await deleteTemplateFromSupabase(id);
+        }
     } catch (error) {
         console.error('Failed to delete template:', error);
     }

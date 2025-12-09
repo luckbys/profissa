@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured, getCurrentUser } from './supabaseClient';
-import { Client, Appointment, UserProfile } from '../types';
+import { Client, Appointment, UserProfile, ServiceTemplate } from '../types';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
     documents: 'gerente_bolso_documents',
     expenses: 'gerente_bolso_expenses',
     goals: 'gerente_bolso_goals',
+    templates: 'gerente_bolso_service_templates',
     syncQueue: 'profissa_sync_queue',
     lastSync: 'profissa_last_sync'
 };
@@ -68,13 +69,11 @@ const removeFromSyncQueue = (id: string): void => {
 
 export const syncClients = async (userId: string): Promise<Client[]> => {
     if (!isSupabaseConfigured()) {
-        // Return local data if Supabase not configured
         const localData = localStorage.getItem(STORAGE_KEYS.clients);
         return localData ? JSON.parse(localData) : [];
     }
 
     try {
-        // Fetch from Supabase
         const { data: remoteClients, error } = await supabase
             .from('clients')
             .select('*')
@@ -82,7 +81,6 @@ export const syncClients = async (userId: string): Promise<Client[]> => {
 
         if (error) throw error;
 
-        // Transform to local format
         const clients: Client[] = (remoteClients || []).map(c => ({
             id: c.id,
             name: c.name,
@@ -94,34 +92,23 @@ export const syncClients = async (userId: string): Promise<Client[]> => {
             birthday: c.birthday || ''
         }));
 
-        // Save to localStorage for offline access
         localStorage.setItem(STORAGE_KEYS.clients, JSON.stringify(clients));
-
         return clients;
     } catch (error) {
         console.error('Error syncing clients:', error);
-        // Return local data on error
         const localData = localStorage.getItem(STORAGE_KEYS.clients);
         return localData ? JSON.parse(localData) : [];
     }
 };
 
 export const saveClientToSupabase = async (userId: string, client: Client): Promise<void> => {
-    console.log('[Sync] saveClientToSupabase called', {
-        userId,
-        clientId: client.id,
-        isConfigured: isSupabaseConfigured()
-    });
-
     if (!isSupabaseConfigured()) {
-        console.warn('[Sync] Supabase not configured, adding to sync queue');
         addToSyncQueue('clients', 'insert', { userId, client });
         return;
     }
 
     try {
-        console.log('[Sync] Sending client to Supabase...');
-        const { data, error } = await supabase.from('clients').upsert({
+        const { error } = await supabase.from('clients').upsert({
             id: client.id,
             user_id: userId,
             name: client.name,
@@ -133,14 +120,9 @@ export const saveClientToSupabase = async (userId: string, client: Client): Prom
             birthday: client.birthday || null
         }).select();
 
-        if (error) {
-            console.error('[Sync] Supabase error:', error);
-            throw error;
-        }
-
-        console.log('[Sync] Client saved successfully:', data);
+        if (error) throw error;
     } catch (error) {
-        console.error('[Sync] Error saving client to Supabase:', error);
+        console.error('Error saving client to Supabase:', error);
         addToSyncQueue('clients', 'insert', { userId, client });
     }
 };
@@ -155,7 +137,7 @@ export const deleteClientFromSupabase = async (clientId: string): Promise<void> 
         const { error } = await supabase.from('clients').delete().eq('id', clientId);
         if (error) throw error;
     } catch (error) {
-        console.error('Error deleting client from Supabase:', error);
+        console.error('Error deleting client:', error);
         addToSyncQueue('clients', 'delete', { clientId });
     }
 };
@@ -179,14 +161,13 @@ export const syncAppointments = async (userId: string): Promise<Appointment[]> =
         const appointments: Appointment[] = (remoteAppointments || []).map(a => ({
             id: a.id,
             clientId: a.client_id || '',
-            date: a.date, // Full datetime stored in date column
+            date: a.date,
             service: a.service,
             price: Number(a.price) || 0,
             status: a.status as 'pending' | 'completed' | 'cancelled'
         }));
 
         localStorage.setItem(STORAGE_KEYS.appointments, JSON.stringify(appointments));
-
         return appointments;
     } catch (error) {
         console.error('Error syncing appointments:', error);
@@ -206,7 +187,7 @@ export const saveAppointmentToSupabase = async (userId: string, appointment: App
             id: appointment.id,
             user_id: userId,
             client_id: appointment.clientId || null,
-            date: appointment.date, // Full datetime stored in date column
+            date: appointment.date,
             service: appointment.service,
             price: appointment.price,
             status: appointment.status
@@ -320,8 +301,6 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
 
             if (error) throw error;
         }
-
-
     } catch (error) {
         console.error('Error saving profile to Supabase:', error);
         addToSyncQueue('profiles', 'update', { userId, profile });
@@ -330,17 +309,91 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
 
 export const consumeDocumentCredit = async (userId: string): Promise<boolean> => {
     if (!isSupabaseConfigured()) {
-        return true; // Assume success offline, sync later (or logic to block)
+        return true;
     }
 
     try {
         const { data, error } = await supabase.rpc('consume_document_credit', { user_id: userId });
-
         if (error) throw error;
         return data as boolean;
     } catch (error) {
         console.error('Error consuming credit in Supabase:', error);
         return false;
+    }
+};
+
+// ============= SERVICE TEMPLATES SYNC =============
+
+export const syncTemplates = async (userId: string): Promise<ServiceTemplate[]> => {
+    if (!isSupabaseConfigured()) {
+        const localData = localStorage.getItem(STORAGE_KEYS.templates);
+        return localData ? JSON.parse(localData) : [];
+    }
+
+    try {
+        const { data: remoteTemplates, error } = await supabase
+            .from('service_templates')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        const templates: ServiceTemplate[] = (remoteTemplates || []).map(t => ({
+            id: t.id,
+            name: t.name,
+            description: t.description || '',
+            price: Number(t.price) || 0,
+            category: t.category,
+            isDefault: t.is_default,
+            createdAt: t.created_at || new Date().toISOString()
+        }));
+
+        localStorage.setItem(STORAGE_KEYS.templates, JSON.stringify(templates));
+        return templates;
+    } catch (error) {
+        console.error('Error syncing templates:', error);
+        const localData = localStorage.getItem(STORAGE_KEYS.templates);
+        return localData ? JSON.parse(localData) : [];
+    }
+};
+
+export const saveTemplateToSupabase = async (userId: string, template: ServiceTemplate): Promise<void> => {
+    if (!isSupabaseConfigured()) {
+        addToSyncQueue('service_templates', 'insert', { userId, template });
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('service_templates').upsert({
+            id: template.id,
+            user_id: userId,
+            name: template.name,
+            description: template.description,
+            price: template.price,
+            category: template.category,
+            is_default: template.isDefault,
+            updated_at: new Date().toISOString()
+        });
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error saving template to Supabase:', error);
+        addToSyncQueue('service_templates', 'insert', { userId, template });
+    }
+};
+
+export const deleteTemplateFromSupabase = async (templateId: string): Promise<void> => {
+    if (!isSupabaseConfigured()) {
+        addToSyncQueue('service_templates', 'delete', { templateId });
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('service_templates').delete().eq('id', templateId);
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error deleting template:', error);
+        addToSyncQueue('service_templates', 'delete', { templateId });
     }
 };
 
@@ -447,7 +500,8 @@ export const performFullSync = async (): Promise<SyncStatus> => {
             syncClients(user.id),
             syncAppointments(user.id),
             syncProfile(user.id),
-            syncExpenses(user.id)
+            syncExpenses(user.id),
+            syncTemplates(user.id)
         ]);
 
         const lastSyncAt = new Date().toISOString();
@@ -500,6 +554,13 @@ const processSyncQueue = async (userId: string): Promise<void> => {
                         await saveExpenseToSupabase(userId, item.data.expense);
                     }
                     break;
+                case 'service_templates':
+                    if (item.operation === 'delete') {
+                        await deleteTemplateFromSupabase(item.data.templateId);
+                    } else {
+                        await saveTemplateToSupabase(userId, item.data.template);
+                    }
+                    break;
             }
             removeFromSyncQueue(item.id);
         } catch (error) {
@@ -532,6 +593,7 @@ export const setupRealtimeSync = (userId: string, onDataChange: () => void) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `user_id=eq.${userId}` }, onDataChange)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${userId}` }, onDataChange)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `user_id=eq.${userId}` }, onDataChange)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'service_templates', filter: `user_id=eq.${userId}` }, onDataChange)
         .subscribe();
 
     return channel;

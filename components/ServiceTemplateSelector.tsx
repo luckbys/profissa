@@ -64,7 +64,7 @@ const ServiceTemplateSelector: React.FC<ServiceTemplateSelectorProps> = ({
         if (!newTemplate.name || !newTemplate.description) return;
 
         const template: ServiceTemplate = {
-            id: editingTemplate?.id || Date.now().toString(),
+            id: editingTemplate?.id || crypto.randomUUID(),
             name: newTemplate.name,
             description: newTemplate.description,
             price: parseFloat(newTemplate.price) || 0,

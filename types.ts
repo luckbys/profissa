@@ -71,3 +71,5 @@ export interface UserProfile {
 }
 
 export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'profile' | 'history' | 'coach' | 'booking';
+
+export * from './types/serviceTemplate';

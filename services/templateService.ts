@@ -4,11 +4,35 @@ import { saveTemplateToSupabase, deleteTemplateFromSupabase } from './syncServic
 
 const TEMPLATES_KEY = 'gerente_bolso_service_templates';
 
+// Helper to check if string is a valid UUID
+const isValidUUID = (uuid: string) => {
+    const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return regex.test(uuid);
+};
+
 // Get all templates
 export const getTemplates = (): ServiceTemplate[] => {
     try {
         const data = localStorage.getItem(TEMPLATES_KEY);
-        return data ? JSON.parse(data) : [];
+        if (!data) return [];
+
+        let templates: ServiceTemplate[] = JSON.parse(data);
+        let hasChanges = false;
+
+        // Migrate legacy numeric IDs to UUIDs
+        templates = templates.map(t => {
+            if (!isValidUUID(t.id)) {
+                hasChanges = true;
+                return { ...t, id: crypto.randomUUID() };
+            }
+            return t;
+        });
+
+        if (hasChanges) {
+            localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+        }
+
+        return templates;
     } catch {
         return [];
     }

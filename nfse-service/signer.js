@@ -1,6 +1,5 @@
 const forge = require('node-forge');
 const { SignedXml } = require('xml-crypto');
-const { DOMParser } = require('@xmldom/xmldom');
 
 function signXML(xml, p12Buffer, password) {
     // 1. Parse P12
@@ -39,22 +38,37 @@ function signXML(xml, p12Buffer, password) {
     const subjectAttrs = cert.subject.attributes;
     const cnAttr = subjectAttrs.find(attr => attr.shortName === 'CN' || attr.name === 'commonName');
     if (cnAttr) {
-        // Usually format is "NAME:CNPJ" or similar in Brazil
         const match = cnAttr.value.match(/\d{14}/);
         if (match) cpnjPrestador = match[0];
     }
 
-    // 3. Sign
-    const sig = new SignedXml();
-    sig.addReference("//*[local-name(.)='InfDPS']",
-        ["http://www.w3.org/2000/09/xmldsig#enveloped-signature", "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"],
-        "http://www.w3.org/2000/09/xmldsig#sha1"
-    );
-    sig.signingKey = keyPem;
-    sig.computeSignature(xml);
+    // 3. Sign XML using xml-crypto
+    const sig = new SignedXml({
+        privateKey: keyPem,
+        canonicalizationAlgorithm: "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
+        signatureAlgorithm: "http://www.w3.org/2000/09/xmldsig#rsa-sha1"
+    });
+
+    // ABRASF lote format: sign InfRps element
+    sig.addReference({
+        xpath: "//*[local-name(.)='InfRps']",
+        transforms: [
+            "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
+            "http://www.w3.org/TR/2001/REC-xml-c14n-20010315"
+        ],
+        digestAlgorithm: "http://www.w3.org/2000/09/xmldsig#sha1"
+    });
+
+    sig.computeSignature(xml, {
+        location: { reference: "//*[local-name(.)='Rps']", action: "append" }
+    });
+
+    // Get signed XML and remove XML declaration if present
+    let signedXml = sig.getSignedXml();
+    signedXml = signedXml.replace(/<\?xml[^?]*\?>\s*/gi, '');
 
     return {
-        signedXml: sig.getSignedXml(),
+        signedXml,
         certPem,
         keyPem,
         cpnjPrestador

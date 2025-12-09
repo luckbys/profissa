@@ -11,13 +11,14 @@ import {
     saveDocument,
     toggleDocumentStatus,
     fetchDocuments,
-    filterDocuments
+    filterDocuments,
+    checkNfseStatus
 } from '../services/documentService';
 import {
     FileText, Receipt, Search, Filter, Send, Copy, Trash2,
 
     Eye, ChevronDown, X, Calendar, Clock, MoreVertical, CheckCircle2, AlertCircle,
-    ScrollText, ExternalLink, Ban, Info
+    ScrollText, ExternalLink, Ban, Info, RefreshCw
 } from 'lucide-react';
 
 interface DocumentHistoryProps {
@@ -83,6 +84,27 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
         const link = generateDocumentWhatsAppLink(doc);
         window.open(link, '_blank');
         setActionMenuId(null);
+    };
+
+    const handleCheckStatus = async (doc: SavedDocument) => {
+        setActionMenuId(null);
+        showToast('Verificando...', 'Consultando status da nota fiscal.', 'info');
+
+        const result = await checkNfseStatus(doc.id);
+
+        if (result.sucesso) {
+            if (result.status === 'autorizada') {
+                showToast('Nota Autorizada! ✅', 'A NFS-e foi autorizada pela prefeitura.', 'success');
+            } else if (result.status === 'processando') {
+                showToast('Ainda processando', 'A prefeitura ainda está processando a nota.', 'warning');
+            } else if (result.status === 'rejeitada' || result.status === 'erro') {
+                showToast('Nota Rejeitada', 'Verifique os detalhes na nota.', 'error');
+            }
+            // Reload documents to show updated status
+            loadDocuments();
+        } else {
+            showToast('Erro', result.erro || 'Não foi possível verificar o status.', 'error');
+        }
     };
 
     const formatDate = (dateString: string) => {
@@ -229,6 +251,14 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                                                     <hr className="my-1 border-gray-100" />
                                                     {doc.type === 'nfse' ? (
                                                         <>
+                                                            {doc.status === 'pending' && (
+                                                                <button
+                                                                    onClick={() => handleCheckStatus(doc)}
+                                                                    className="w-full px-4 py-2.5 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                                                >
+                                                                    <RefreshCw size={16} /> Atualizar Status
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 onClick={() => {
                                                                     showToast('Funcionalidade indisponível', 'O cancelamento de notas fiscais será habilitado em breve.', 'warning');

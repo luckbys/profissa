@@ -61,6 +61,27 @@ export const fetchDocuments = async (userId?: string): Promise<SavedDocument[]> 
     }
 };
 
+// Check NFS-e status (poll Nuvem Fiscal for updates)
+export const checkNfseStatus = async (invoiceId: string): Promise<{
+    sucesso: boolean;
+    status?: string;
+    numero?: string;
+    link_url?: string;
+    erro?: string;
+}> => {
+    try {
+        const response = await fetch('http://localhost:4000/check-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invoiceId })
+        });
+        return await response.json();
+    } catch (error) {
+        console.error('Check status error:', error);
+        return { sucesso: false, erro: 'Erro ao verificar status' };
+    }
+};
+
 // Save a new document
 export const saveDocument = (document: SavedDocument): void => {
     try {

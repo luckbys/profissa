@@ -11,24 +11,25 @@ app.use(express.json());
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Emit NFS-e endpoint
 app.post('/emit-nfse', async (req, res) => {
+    const { invoiceId } = req.body;
+
+    if (!invoiceId) {
+        return res.status(400).json({ sucesso: false, erro: 'invoiceId is required' });
+    }
+
+    console.log(`[NFS-e] Processing invoice with Nuvem Fiscal: ${invoiceId}`);
+
     try {
-        const { invoiceId } = req.body;
-
-        if (!invoiceId) {
-            return res.status(400).json({ sucesso: false, erro: 'Invoice ID required' });
-        }
-
-        console.log(`[NFS-e] Processing invoice: ${invoiceId}`);
-
-        // 1. Fetch Invoice Data with related tables
+        // 1. Fetch Invoice Data
         const { data: invoice, error: invoiceError } = await supabase
             .from('nfs_e')
             .select('*, clients(*)')
@@ -49,144 +50,131 @@ app.post('/emit-nfse', async (req, res) => {
 
         if (configError || !fiscalConfig) {
             console.error('[NFS-e] Fiscal config not found:', configError);
-            return res.status(400).json({ sucesso: false, erro: 'Configuração fiscal não encontrada. Configure seu certificado digital em Configurações > Notas Fiscais.' });
+            return res.status(400).json({ sucesso: false, erro: 'Configuração fiscal não encontrada. Configure em Perfil > Notas Fiscais.' });
         }
 
         const config = fiscalConfig;
-        if (!config.certificate_path || !config.certificate_password) {
-            return res.status(400).json({ sucesso: false, erro: 'Certificado digital não configurado' });
-        }
 
-        // 2. Download Certificate from Supabase Storage
-        const { data: certData, error: certError } = await supabase
-            .storage
-            .from('fiscal-certs')
-            .download(config.certificate_path);
+        // 2. Call Nuvem Fiscal Service
+        // Note: We skip local certificate download/signing as Nuvem Fiscal handles it (Cert must be formatted/uploaded there or we add an upload step later)
+        // For now, we assume the user configured their company on Nuvem Dashboard.
 
-        if (certError) {
-            console.error('[NFS-e] Cert download error:', certError);
-            return res.status(500).json({ sucesso: false, erro: 'Falha ao baixar certificado digital' });
-        }
+        // Load nuvem service dynamically or at top
+        const { emitirNfse } = require('./nuvem');
 
-        const p12Buffer = await certData.arrayBuffer();
-
-        // 3. Build XML based on ABRASF/Nacional standard
-        const dpsId = `DPS${invoice.rps_number || Date.now()}`;
-        const issueDate = new Date().toISOString().split('.')[0];
-        const competencia = issueDate.slice(0, 10);
-
-        // Client data
-        const tomadorCpfCnpj = invoice.clients?.cpf?.replace(/\D/g, '') || '';
-        const tomadorNome = invoice.clients?.name || 'Consumidor Final';
-        const isCnpj = tomadorCpfCnpj.length === 14;
-
-        // Provider data from config
-        const prestadorCnpj = config.cnpj?.replace(/\D/g, '') || '';
-        const inscMunicipal = config.inscricao_municipal || '';
-        const codigoMunicipio = config.codigo_municipio || '3550308'; // Default: São Paulo
-
-        // Service data
-        const valorServico = (invoice.service_amount || 0).toFixed(2);
-        const aliquotaISS = (config.aliquota_iss || 5).toFixed(2);
-        const valorISS = ((invoice.service_amount || 0) * (config.aliquota_iss || 5) / 100).toFixed(2);
-        const descricaoServico = invoice.description || 'Prestação de Serviço';
-        const codigoServico = config.codigo_servico || '0107'; // Default: IT services
-        const codigoTributacaoNacional = config.codigo_tributacao_nacional || '010101';
-
-        // Build XML (Sistema Nacional de NFS-e compliant)
-        const xmlTemplate = `<?xml version="1.0" encoding="UTF-8"?>
-<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.00">
-    <infDPS Id="${dpsId}">
-        <tpAmb>${config.environment === 'production' ? '1' : '2'}</tpAmb>
-        <dhEmi>${issueDate}</dhEmi>
-        <verAplic>PROFISSA-1.0</verAplic>
-        <dCompet>${competencia}</dCompet>
-        <prest>
-            <CNPJ>${prestadorCnpj}</CNPJ>
-            <IM>${inscMunicipal}</IM>
-        </prest>
-        <toma>
-            ${isCnpj ? `<CNPJ>${tomadorCpfCnpj}</CNPJ>` : `<CPF>${tomadorCpfCnpj}</CPF>`}
-            <xNome>${escapeXml(tomadorNome)}</xNome>
-        </toma>
-        <serv>
-            <locPrest>
-                <cMun>${codigoMunicipio}</cMun>
-            </locPrest>
-            <cServ>
-                <cTribNac>${codigoTributacaoNacional}</cTribNac>
-                <cTribMun>${codigoServico}</cTribMun>
-                <xDescServ>${escapeXml(descricaoServico)}</xDescServ>
-            </cServ>
-            <vServ>${valorServico}</vServ>
-        </serv>
-        <valores>
-            <vServPrest>
-                <vReceb>${valorServico}</vReceb>
-            </vServPrest>
-            <trib>
-                <tribMun>
-                    <tribISSQN>1</tribISSQN>
-                    <cLocIncworking>${codigoMunicipio}</cLocIncworking>
-                    <pAliq>${aliquotaISS}</pAliq>
-                    <tpRetISSQN>1</tpRetISSQN>
-                </tribMun>
-                <totTrib>
-                    <vTotTribFed>0.00</vTotTribFed>
-                    <vTotTribEst>0.00</vTotTribEst>
-                    <vTotTribMun>${valorISS}</vTotTribMun>
-                </totTrib>
-            </trib>
-        </valores>
-    </infDPS>
-</DPS>`;
-
-        // 4. Sign XML
-        const { signedXml, certPem, keyPem, cpnjPrestador } = signXML(
-            xmlTemplate,
-            Buffer.from(p12Buffer),
-            config.certificate_password
-        );
-
-        // Use CNPJ from certificate if not configured
-        const finalCnpj = prestadorCnpj || cpnjPrestador;
-        const finalXml = signedXml.replace(/<CNPJ><\/CNPJ>/g, `<CNPJ>${finalCnpj}</CNPJ>`);
-
-        console.log('[NFS-e] XML Signed successfully');
-
-        // 5. Send to API (mTLS)
         const isProduction = config.environment === 'production';
-        const apiResponse = await sendDPS(finalXml, certPem, keyPem, isProduction);
+        const nuvemResponse = await emitirNfse({ invoice, config }, isProduction);
 
-        console.log('[NFS-e] API Response:', apiResponse);
+        console.log('[NFS-e] Nuvem Fiscal Response:', nuvemResponse);
 
-        // 6. Update Database
+        // 3. Update Database with Result
         const updatePayload = {
-            xml_sent: finalXml,
-            xml_return: JSON.stringify(apiResponse),
             updated_at: new Date().toISOString()
         };
 
-        if (apiResponse.sucesso) {
-            updatePayload.status = 'authorized';
-            updatePayload.nfse_number = apiResponse.numero;
-            updatePayload.auth_code = apiResponse.codigoVerificacao;
-            updatePayload.url_pdf = apiResponse.linkPdf || null;
-            updatePayload.chave_nfse = apiResponse.chaveNFSe || null;
+        if (nuvemResponse.sucesso) {
+            const data = nuvemResponse.data;
+            updatePayload.status = data.status === 'autorizada' ? 'authorized' : 'pending';
+            updatePayload.nfse_number = data.numero || null;
+            updatePayload.auth_code = data.codigo_verificacao || null;
+            updatePayload.url_pdf = data.link_url || null;
+            updatePayload.xml_return = JSON.stringify(data);
+            // Store Nuvem Fiscal ID for status polling
+            updatePayload.nuvem_id = data.id || null;
         } else {
             updatePayload.status = 'error';
-            updatePayload.error_message = apiResponse.erro;
+            updatePayload.error_message = nuvemResponse.erro || 'Erro desconhecido na Nuvem Fiscal';
+            updatePayload.xml_return = JSON.stringify(nuvemResponse); // Store full error for debug
         }
+
+        const { error: dbError } = await supabase
+            .from('nfs_e')
+            .update(updatePayload)
+            .eq('id', invoiceId);
+
+        if (dbError) {
+            console.error('[NFS-e] DB Update Error:', dbError);
+        }
+
+        return res.json(nuvemResponse);
+
+    } catch (error) {
+        console.error('[NFS-e] Server Error:', error);
+        res.status(500).json({ sucesso: false, erro: error.message });
+    }
+});
+
+// Check NFS-e status endpoint (for polling processing status)
+app.post('/check-status', async (req, res) => {
+    const { invoiceId } = req.body;
+
+    if (!invoiceId) {
+        return res.status(400).json({ sucesso: false, erro: 'invoiceId is required' });
+    }
+
+    try {
+        // Fetch invoice to get Nuvem ID
+        const { data: invoice, error: invoiceError } = await supabase
+            .from('nfs_e')
+            .select('nuvem_id, status')
+            .eq('id', invoiceId)
+            .single();
+
+        if (invoiceError || !invoice) {
+            return res.status(404).json({ sucesso: false, erro: 'Nota fiscal não encontrada' });
+        }
+
+        // If already authorized or error, return current status
+        if (invoice.status === 'authorized' || invoice.status === 'error') {
+            return res.json({ sucesso: true, status: invoice.status });
+        }
+
+        // If no Nuvem ID, can't check
+        if (!invoice.nuvem_id) {
+            return res.json({ sucesso: false, erro: 'Nota ainda não foi enviada para Nuvem Fiscal' });
+        }
+
+        // Query Nuvem Fiscal for current status
+        const { consultarNfse } = require('./nuvem');
+        const consultaResponse = await consultarNfse(invoice.nuvem_id);
+
+        if (!consultaResponse.sucesso) {
+            return res.json(consultaResponse);
+        }
+
+        const data = consultaResponse.data;
+        const updatePayload = {
+            updated_at: new Date().toISOString()
+        };
+
+        // Map Nuvem status to our status
+        if (data.status === 'autorizada') {
+            updatePayload.status = 'authorized';
+            updatePayload.nfse_number = data.numero || null;
+            updatePayload.auth_code = data.codigo_verificacao || null;
+            updatePayload.url_pdf = data.link_url || null;
+            updatePayload.xml_return = JSON.stringify(data);
+        } else if (data.status === 'rejeitada' || data.status === 'erro') {
+            updatePayload.status = 'error';
+            updatePayload.error_message = data.mensagens?.[0]?.descricao || 'NFS-e rejeitada pela prefeitura';
+        }
+        // If still processing, don't update status
 
         await supabase
             .from('nfs_e')
             .update(updatePayload)
             .eq('id', invoiceId);
 
-        return res.json(apiResponse);
+        return res.json({
+            sucesso: true,
+            status: data.status,
+            numero: data.numero,
+            link_url: data.link_url,
+            codigo_verificacao: data.codigo_verificacao
+        });
 
     } catch (error) {
-        console.error('[NFS-e] Server Error:', error);
+        console.error('[NFS-e] Check Status Error:', error);
         res.status(500).json({ sucesso: false, erro: error.message });
     }
 });
@@ -204,5 +192,5 @@ function escapeXml(str) {
 
 app.listen(PORT, () => {
     console.log(`[NFS-e] Service running on port ${PORT}`);
-    console.log('[NFS-e] Environment:', process.env.NODE_ENV || 'development');
+    console.log(`[NFS-e] Environment: ${process.env.NODE_ENV || 'development'}`);
 });

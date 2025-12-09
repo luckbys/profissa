@@ -2,168 +2,224 @@ const axios = require('axios');
 const https = require('https');
 const { DOMParser } = require('@xmldom/xmldom');
 
-// Nacional NFS-e API Endpoints (Sistema Nacional de NFS-e - ADN)
-// IMPORTANT: Verify these URLs against official documentation
+// São José dos Campos NFS-e SOAP Endpoints
 const ENDPOINTS = {
-    homologacao: {
-        enviarDPS: 'https://sefin.nfse.gov.br/sefinnacional/homologacao/nfse',
-        consultarNFSe: 'https://sefin.nfse.gov.br/sefinnacional/homologacao/nfse',
-    },
-    producao: {
-        enviarDPS: 'https://sefin.nfse.gov.br/sefinnacional/nfse',
-        consultarNFSe: 'https://sefin.nfse.gov.br/sefinnacional/nfse',
-    }
+    homologacao: 'https://homol-notajoseense.sjc.sp.gov.br/notafiscal-ws/NotaFiscalSoap',
+    producao: 'https://notajoseense.sjc.sp.gov.br/notafiscal-ws/NotaFiscalSoap'
 };
 
+// SOAP Actions - SJC WSDL indicates empty SOAPAction for RecepcionarLoteRps
+const SOAP_ACTIONS = {
+    recepcionarLoteRps: '',
+    gerarNfse: 'http://nfse.abrasf.org.br/GerarNfse'
+};
+
+// Build cabecalho XML for ABRASF 2.04
+function buildCabecalho() {
+    return `<?xml version="1.0" encoding="UTF-8"?><cabecalho xmlns="http://www.abrasf.org.br/nfse.xsd" versao="2.04"><versaoDados>2.04</versaoDados></cabecalho>`;
+}
+
+// Build SOAP Envelope - ABRASF Standard with Qualified Elements
+function buildSoapEnvelope(xmlContent) {
+    const cabecalho = buildCabecalho();
+
+    // Namespace: http://www.abrasf.org.br/nfse.xsd
+    // Operation: RecepcionarLoteRps
+    // Children: nfseCabecMsg, nfseDadosMsg (Qualified per elementFormDefault="qualified")
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ws="http://www.abrasf.org.br/nfse.xsd">
+    <soap:Body>
+        <ws:RecepcionarLoteRps>
+            <ws:nfseCabecMsg><![CDATA[${cabecalho}]]></ws:nfseCabecMsg>
+            <ws:nfseDadosMsg><![CDATA[${xmlContent}]]></ws:nfseDadosMsg>
+        </ws:RecepcionarLoteRps>
+    </soap:Body>
+</soap:Envelope>`;
+}
+
 async function sendDPS(signedXml, certPem, keyPem, isProduction) {
-    const env = isProduction ? 'producao' : 'homologacao';
-    const baseUrl = ENDPOINTS[env].enviarDPS;
+    const endpoint = isProduction ? ENDPOINTS.producao : ENDPOINTS.homologacao;
 
     // Create HTTPS Agent with Client Certificate (mTLS)
     const agent = new https.Agent({
         cert: certPem,
         key: keyPem,
-        rejectUnauthorized: false // Set to true in production with proper CA chain
+        rejectUnauthorized: false
     });
 
-    try {
-        console.log(`[NFS-e] Sending to ${baseUrl} (${env})...`);
-        console.log('[NFS-e] XML Preview:', signedXml.substring(0, 500) + '...');
+    const soapEnvelope = buildSoapEnvelope(signedXml);
 
-        const response = await axios.post(baseUrl, signedXml, {
+    try {
+        console.log(`[NFS-e] Sending SOAP to ${endpoint}...`);
+        const soapAction = SOAP_ACTIONS.recepcionarLoteRps;
+        console.log(`[NFS-e] SOAPAction: "${soapAction}"`);
+        console.log('[NFS-e] SOAP Envelope preview:', soapEnvelope.substring(0, 500));
+
+        const response = await axios.post(endpoint, soapEnvelope, {
             httpsAgent: agent,
             headers: {
-                'Content-Type': 'application/xml; charset=utf-8',
-                'Accept': 'application/xml'
+                'Content-Type': 'text/xml; charset=utf-8',
+                'SOAPAction': soapAction
             },
-            timeout: 30000 // 30 seconds timeout
+            timeout: 60000
         });
 
         console.log('[NFS-e] Response Status:', response.status);
-        console.log('[NFS-e] Response Data:', response.data);
-
-        // Parse XML Response
-        return parseNFSeResponse(response.data);
+        return parseSoapResponse(response.data);
 
     } catch (error) {
-        console.error('[NFS-e] Axios Error:', error.message);
+        console.error('[NFS-e] SOAP Error:', error.message);
 
         if (error.response) {
             console.error('[NFS-e] Response Status:', error.response.status);
             console.error('[NFS-e] Response Data:', error.response.data);
+            return parseSoapResponse(error.response.data);
+        }
 
-            // Try to parse error response
-            const errorData = parseNFSeResponse(error.response.data);
-            if (errorData.erro) {
-                return errorData;
-            }
+        return {
+            sucesso: false,
+            erro: error.message || 'Erro de conexão com o webservice'
+        };
+    }
+}
 
+function parseSoapResponse(responseData) {
+    try {
+        // Handle HTML error pages
+        if (typeof responseData === 'string' && responseData.includes('<html')) {
+            const titleMatch = responseData.match(/<title>(.*?)<\/title>/i);
             return {
                 sucesso: false,
-                erro: `API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`
+                erro: titleMatch ? titleMatch[1] : 'Erro HTML do servidor',
+                raw: responseData
             };
         }
 
-        // Network or timeout error
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(responseData, 'text/xml');
+
+        // Check for SOAP Fault
+        const fault = doc.getElementsByTagName('soap:Fault')[0] || doc.getElementsByTagName('Fault')[0];
+        if (fault) {
+            const faultString = fault.getElementsByTagName('faultstring')[0];
+            return {
+                sucesso: false,
+                erro: faultString ? faultString.textContent : 'Erro SOAP desconhecido',
+                raw: responseData
+            };
+        }
+
+        // Check for outputXML (common in ABRASF)
+        const outputXml = doc.getElementsByTagName('outputXML')[0];
+        if (outputXml && outputXml.textContent) {
+            const innerContent = outputXml.textContent.trim();
+            // Decode entities if necessary
+            let decodedContent = innerContent;
+            if (innerContent.includes('&lt;')) {
+                decodedContent = innerContent
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&quot;/g, '"');
+            }
+            return parseInnerXml(decodedContent);
+        }
+
+        // Check for RecepcionarLoteRpsResult (SJC specific?)
+        const resultNode = doc.getElementsByTagName('RecepcionarLoteRpsResult')[0];
+        if (resultNode && resultNode.textContent) {
+            const innerContent = resultNode.textContent.trim();
+            if (innerContent.startsWith('<')) {
+                return parseInnerXml(innerContent);
+            }
+        }
+
+        // Generic fallback check
+        const nfse = doc.getElementsByTagName('Nfse')[0] || doc.getElementsByTagName('CompNfse')[0];
+        if (nfse) return parseInnerXml(responseData); // It's already the XML
+
+        console.log('[NFS-e] Unrecognized structure, raw:', responseData);
         return {
             sucesso: false,
-            erro: error.message || 'Erro de comunicação com o servidor da SEFAZ'
+            erro: 'Estrutura de resposta não reconhecida',
+            raw: responseData
+        };
+
+    } catch (error) {
+        console.error('[NFS-e] Parse Error:', error.message);
+        return {
+            sucesso: false,
+            erro: 'Erro ao processar resposta: ' + error.message,
+            raw: responseData
         };
     }
 }
 
-function parseNFSeResponse(xmlData) {
+function parseInnerXml(xmlString) {
     try {
-        // If response is already an object (JSON), handle it
-        if (typeof xmlData === 'object') {
-            if (xmlData.sucesso === false || xmlData.erro) {
-                return { sucesso: false, erro: xmlData.erro || 'Erro desconhecido' };
-            }
-            return xmlData;
-        }
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlString, 'text/xml');
 
-        // Parse XML
-        const doc = new DOMParser().parseFromString(xmlData, 'text/xml');
-
-        // Check for errors first
-        const erroNode = doc.getElementsByTagName('xMotivo')[0] ||
-            doc.getElementsByTagName('Mensagem')[0] ||
-            doc.getElementsByTagName('descricao')[0];
-
-        if (erroNode && erroNode.textContent) {
-            const cStatNode = doc.getElementsByTagName('cStat')[0];
-            const codigo = cStatNode ? cStatNode.textContent : 'ERRO';
-
-            // Common success codes: 100, 104, etc.
-            if (codigo === '100' || codigo === '104') {
-                // Success - continue to extract data
-            } else {
-                return {
-                    sucesso: false,
-                    erro: `[${codigo}] ${erroNode.textContent}`
-                };
-            }
-        }
-
-        // Extract success data
-        const numeroNFSe = getNodeText(doc, 'NumeroNFSe') ||
-            getNodeText(doc, 'Numero') ||
-            getNodeText(doc, 'nNFSe');
-
-        const codigoVerificacao = getNodeText(doc, 'CodigoVerificacao') ||
-            getNodeText(doc, 'CodVerif');
-
-        const linkPdf = getNodeText(doc, 'LinkNFSe') ||
-            getNodeText(doc, 'link') ||
-            getNodeText(doc, 'urlPdf');
-
-        const chaveNFSe = getNodeText(doc, 'ChNFSe') ||
-            getNodeText(doc, 'chave');
-
-        // If we got a numero, it's a success
-        if (numeroNFSe) {
+        // Check for NFS-e
+        const nfse = doc.getElementsByTagName('Nfse')[0] || doc.getElementsByTagName('CompNfse')[0];
+        if (nfse) {
             return {
                 sucesso: true,
-                numero: numeroNFSe,
-                codigoVerificacao: codigoVerificacao || '',
-                linkPdf: linkPdf || '',
-                chaveNFSe: chaveNFSe || '',
-                raw: xmlData
+                numero: getElementText(doc, 'Numero') || getElementText(doc, 'NumeroNfse'),
+                codigo_verificacao: getElementText(doc, 'CodigoVerificacao'),
+                data_emissao: getElementText(doc, 'DataEmissao'),
+                linkPdf: getElementText(doc, 'LinkUrl'), // Some cities return this
+                raw: xmlString
             };
         }
 
-        // Check for authorization indicators
-        const autorizadaNode = doc.getElementsByTagName('NFSe')[0];
-        if (autorizadaNode) {
+        // Check for protocol (Lote received)
+        const protocolo = getElementText(doc, 'Protocolo');
+        if (protocolo) {
             return {
                 sucesso: true,
-                numero: 'AUTORIZADA',
-                codigoVerificacao: '',
-                linkPdf: '',
-                raw: xmlData
+                protocolo: protocolo,
+                numero_lote: getElementText(doc, 'NumeroLote'),
+                mensagem: 'Lote recebido com sucesso. Aguardando processamento.',
+                raw: xmlString
             };
         }
 
-        // Fallback - can't determine success
+        // Check for errors
+        const mensagens = doc.getElementsByTagName('MensagemRetorno');
+        if (mensagens.length > 0) {
+            const erros = [];
+            for (let i = 0; i < mensagens.length; i++) {
+                const codigo = getElementText(mensagens[i], 'Codigo');
+                const mensagem = getElementText(mensagens[i], 'Mensagem');
+                const correcao = getElementText(mensagens[i], 'Correcao');
+                erros.push(`[${codigo}] ${mensagem}${correcao ? ' - ' + correcao : ''}`);
+            }
+            return {
+                sucesso: false,
+                erro: erros.join('\n')
+            };
+        }
+
         return {
             sucesso: false,
-            erro: 'Resposta não reconhecida do servidor',
-            raw: xmlData
+            erro: 'Resposta sem protocolo ou confirmação',
+            raw: xmlString
         };
-
-    } catch (parseError) {
-        console.error('[NFS-e] Parse Error:', parseError.message);
+    } catch (e) {
         return {
             sucesso: false,
-            erro: 'Erro ao processar resposta: ' + parseError.message,
-            raw: xmlData
+            erro: 'Erro ao processar XML interno: ' + e.message,
+            raw: xmlString
         };
     }
 }
 
-function getNodeText(doc, tagName) {
-    const node = doc.getElementsByTagName(tagName)[0];
-    return node ? node.textContent : null;
+function getElementText(parent, tagName) {
+    if (!parent) return null;
+    const elements = parent.getElementsByTagName(tagName);
+    return elements.length > 0 ? elements[0].textContent : null;
 }
 
-module.exports = { sendDPS, parseNFSeResponse };
+module.exports = { sendDPS, buildSoapEnvelope, buildCabecalho };

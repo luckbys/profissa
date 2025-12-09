@@ -1,0 +1,26 @@
+
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : <?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" 
+                    xmlns:tns="http://www.abrasf.org.br/nfse.xsd" xmlns:s...
+RawContent        : HTTP/1.1 200 OK
+                    Connection: close
+                    Transfer-Encoding: chunked
+                    Content-Type: text/xml;charset=UTF-8
+                    Date: Tue, 09 Dec 2025 15:12:35 GMT
+                    Server: Apache/2.4.6 (CentOS) OpenSSL/1.0.2k-fips PHP/5.4.16 ...
+Forms             : {}
+Headers           : {[Connection, close], [Transfer-Encoding, chunked], [Content-Type, text/xml;charset=UTF-8], [Date, Tue, 09 Dec 2025 15:12:35 GMT]...}
+Images            : {}
+InputFields       : {@{innerHTML=; innerText=; outerHTML=<?xml:namespace prefix = "wsdl" /><wsdl:input name="ConsultarNfsePorRpsV3" message="tns:ConsultarNfsePorRpsV3"></wsdl:input>; 
+                    outerText=; tagName=input}, @{innerHTML=; innerText=; outerHTML=<?xml:namespace prefix = "wsdl" /><wsdl:input name="RecepcionarLoteRps" 
+                    message="tns:RecepcionarLoteRps"></wsdl:input>; outerText=; tagName=input}, @{innerHTML=; innerText=; outerHTML=<?xml:namespace prefix = "wsdl" /><wsdl:input 
+                    name="ConsultarNfsePorRpsV4" message="tns:ConsultarNfsePorRpsV4"></wsdl:input>; outerText=; tagName=input}, @{innerHTML=; innerText=; outerHTML=<?xml:namespace 
+                    prefix = "wsdl" /><wsdl:input name="ConsultarNfsePorRps" message="tns:ConsultarNfsePorRps"></wsdl:input>; outerText=; tagName=input}...}
+Links             : {}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 59721
+
+
+

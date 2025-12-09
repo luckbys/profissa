@@ -1,59 +1,69 @@
 import { Subscription, PlanType, PLAN_LIMITS, DEFAULT_SUBSCRIPTION, PLAN_FEATURES } from '../types/subscription';
+import { UserProfile } from '../types';
 
-const SUBSCRIPTION_KEY = 'gerente_bolso_subscription';
+// We now use the profile as the source of truth
+const PROFILE_KEY = 'gerente_bolso_profile';
 
-// Get subscription from localStorage
+// Helper to get local profile
+const getLocalProfile = (): UserProfile | null => {
+    try {
+        const data = localStorage.getItem(PROFILE_KEY);
+        return data ? JSON.parse(data) : null;
+    } catch {
+        return null;
+    }
+};
+
+// Get subscription from local Profile (synced from Supabase)
 export const getSubscription = (): Subscription => {
     try {
-        const data = localStorage.getItem(SUBSCRIPTION_KEY);
-        if (!data) {
-            // Initialize with default subscription
-            saveSubscription(DEFAULT_SUBSCRIPTION);
+        const profile = getLocalProfile();
+
+        if (!profile) {
             return DEFAULT_SUBSCRIPTION;
         }
 
-        let subscription: Subscription = JSON.parse(data);
+        const plan: PlanType = (profile.isPro || profile.subscriptionStatus === 'pro') ? 'pro' : 'free';
 
-        // Migration: Add AI credits if missing
-        if (subscription.aiCredits === undefined) {
-            subscription.aiCredits = PLAN_LIMITS[subscription.plan].maxAiCredits;
-            subscription.maxAiCredits = PLAN_LIMITS[subscription.plan].maxAiCredits;
-        }
+        // Derive subscription state from profile
+        const subscription: Subscription = {
+            plan,
+            credits: profile.credits !== undefined ? profile.credits : 0,
+            maxCredits: PLAN_LIMITS[plan].maxCredits,
+            // AI Credits are currently not in profile, defaulting to plan limits for now
+            aiCredits: PLAN_LIMITS[plan].maxAiCredits,
+            maxAiCredits: PLAN_LIMITS[plan].maxAiCredits,
+            documentsGenerated: 0, // This metric might be less accurate now if not in profile, but acceptable
+            lastResetDate: new Date().toISOString() // Placeholder
+        };
 
-        // Check if we need to reset credits (new month)
-        const lastReset = new Date(subscription.lastResetDate);
-        const now = new Date();
-
-        if (lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
-            // New month - reset credits
-            const maxCredits = PLAN_LIMITS[subscription.plan].maxCredits;
-            const maxAiCredits = PLAN_LIMITS[subscription.plan].maxAiCredits;
-
-            const resetSubscription: Subscription = {
-                ...subscription,
-                credits: maxCredits === -1 ? 999999 : maxCredits, // -1 = unlimited
-                maxCredits: maxCredits,
-                aiCredits: maxAiCredits,
-                maxAiCredits: maxAiCredits,
-                lastResetDate: now.toISOString()
-            };
-            saveSubscription(resetSubscription);
-            return resetSubscription;
+        // Pro plan overrides
+        if (plan === 'pro') {
+            subscription.credits = 999999;
+            subscription.maxCredits = -1;
         }
 
         return subscription;
     } catch {
-        saveSubscription(DEFAULT_SUBSCRIPTION);
         return DEFAULT_SUBSCRIPTION;
     }
 };
 
-// Save subscription to localStorage
+// Save subscription to localStorage (Updates the Profile object)
 export const saveSubscription = (subscription: Subscription): void => {
     try {
-        localStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(subscription));
+        const profile = getLocalProfile();
+        if (profile) {
+            const updatedProfile: UserProfile = {
+                ...profile,
+                credits: subscription.credits,
+                isPro: subscription.plan === 'pro',
+                subscriptionStatus: subscription.plan === 'pro' ? 'pro' : 'free'
+            };
+            localStorage.setItem(PROFILE_KEY, JSON.stringify(updatedProfile));
+        }
     } catch (error) {
-        console.error('Failed to save subscription:', error);
+        console.error('Failed to save subscription to profile:', error);
     }
 };
 
@@ -63,11 +73,6 @@ export const useCredit = (): boolean => {
 
     // Pro users have unlimited documents
     if (subscription.plan === 'pro') {
-        const updated: Subscription = {
-            ...subscription,
-            documentsGenerated: subscription.documentsGenerated + 1
-        };
-        saveSubscription(updated);
         return true;
     }
 
@@ -75,119 +80,77 @@ export const useCredit = (): boolean => {
         return false;
     }
 
+    // Optimistic update
     const updated: Subscription = {
         ...subscription,
-        credits: subscription.credits - 1,
-        documentsGenerated: subscription.documentsGenerated + 1
+        credits: subscription.credits - 1
     };
-
     saveSubscription(updated);
+
+    // Note: The actual server sync is handled by the consumer (hooks/useSubscription) 
+    // calling syncService.consumeDocumentCredit
+
     return true;
 };
 
 // Use an AI credit (returns true if successful)
 export const useAiCredit = (): boolean => {
+    // Currently AI credits are not strictly enforced on server, keeping local logic
     const subscription = getSubscription();
 
     if (subscription.aiCredits <= 0) {
         return false;
     }
-
-    const updated: Subscription = {
-        ...subscription,
-        aiCredits: subscription.aiCredits - 1
-    };
-
-    saveSubscription(updated);
+    // We don't save AI credits to profile yet as the column doesn't exist
     return true;
 };
 
 // Check if user has document credits available
 export const hasCredits = (): boolean => {
     const subscription = getSubscription();
-    // Pro users always have credits (unlimited)
     if (subscription.plan === 'pro') return true;
     return subscription.credits > 0;
 };
 
 // Check if user has AI credits available
 export const hasAiCredits = (): boolean => {
-    const subscription = getSubscription();
-    return subscription.aiCredits > 0;
+    return true; // Temporary: Allow AI usage until strictly enforced
 };
 
 // Get remaining document credits
 export const getRemainingCredits = (): number => {
     const subscription = getSubscription();
-    // Pro users have unlimited
     if (subscription.plan === 'pro') return 999999;
     return subscription.credits;
 };
 
 // Get remaining AI credits
 export const getRemainingAiCredits = (): number => {
-    return getSubscription().aiCredits;
+    const subscription = getSubscription();
+    return subscription.aiCredits;
 };
 
-// Upgrade to Pro plan
+// Upgrade to Pro plan - DEPRECATED / SERVER ONLY
 export const upgradeToPro = (): Subscription => {
-    const subscription = getSubscription();
-
-    const upgraded: Subscription = {
-        ...subscription,
-        plan: 'pro',
-        credits: 999999, // unlimited
-        maxCredits: -1,
-        aiCredits: PLAN_LIMITS.pro.maxAiCredits,
-        maxAiCredits: PLAN_LIMITS.pro.maxAiCredits,
-        lastResetDate: new Date().toISOString()
-    };
-
-    saveSubscription(upgraded);
-    return upgraded;
+    console.warn('Upgrade to Pro must be handled by server/stripe');
+    return getSubscription();
 };
 
-// Downgrade to Free plan
+// Downgrade to Free plan - DEPRECATED / SERVER ONLY
 export const downgradeToFree = (): Subscription => {
-    const subscription = getSubscription();
-
-    const downgraded: Subscription = {
-        ...subscription,
-        plan: 'free',
-        credits: PLAN_LIMITS.free.maxCredits,
-        maxCredits: PLAN_LIMITS.free.maxCredits,
-        aiCredits: Math.min(subscription.aiCredits, PLAN_LIMITS.free.maxAiCredits),
-        maxAiCredits: PLAN_LIMITS.free.maxAiCredits
-    };
-
-    saveSubscription(downgraded);
-    return downgraded;
+    console.warn('Downgrade must be handled by server');
+    return getSubscription();
 };
 
-// Add bonus credits (for promotions, etc.)
+// Add bonus credits - DEPRECATED / SERVER ONLY
 export const addBonusCredits = (amount: number): Subscription => {
-    const subscription = getSubscription();
-
-    const updated: Subscription = {
-        ...subscription,
-        credits: subscription.credits + amount
-    };
-
-    saveSubscription(updated);
-    return updated;
+    console.warn('Bonus credits must be handled by server');
+    return getSubscription();
 };
 
 // Add bonus AI credits
 export const addBonusAiCredits = (amount: number): Subscription => {
-    const subscription = getSubscription();
-
-    const updated: Subscription = {
-        ...subscription,
-        aiCredits: subscription.aiCredits + amount
-    };
-
-    saveSubscription(updated);
-    return updated;
+    return getSubscription();
 };
 
 // Check if a specific feature is available for the current plan

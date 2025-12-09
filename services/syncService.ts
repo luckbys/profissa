@@ -102,32 +102,44 @@ export const syncClients = async (userId: string): Promise<Client[]> => {
 };
 
 export const saveClientToSupabase = async (userId: string, client: Client): Promise<void> => {
+    // Ensure we have a valid UUID
+    let clientToSave = { ...client };
+    if (!isValidUUID(clientToSave.id)) {
+        console.warn('Invalid UUID detected for client, generating new one for sync:', clientToSave.id);
+        clientToSave.id = crypto.randomUUID();
+    }
+
     if (!isSupabaseConfigured()) {
-        addToSyncQueue('clients', 'insert', { userId, client });
+        addToSyncQueue('clients', 'insert', { userId, client: clientToSave });
         return;
     }
 
     try {
         const { error } = await supabase.from('clients').upsert({
-            id: client.id,
+            id: clientToSave.id,
             user_id: userId,
-            name: client.name,
-            phone: client.phone,
-            email: client.email || null,
-            address: client.address || null,
-            notes: client.notes || null,
-            tags: client.tags || [],
-            birthday: client.birthday || null
+            name: clientToSave.name,
+            phone: clientToSave.phone,
+            email: clientToSave.email || null,
+            address: clientToSave.address || null,
+            notes: clientToSave.notes || null,
+            tags: clientToSave.tags || [],
+            birthday: clientToSave.birthday || null
         }).select();
 
         if (error) throw error;
     } catch (error) {
         console.error('Error saving client to Supabase:', error);
-        addToSyncQueue('clients', 'insert', { userId, client });
+        addToSyncQueue('clients', 'insert', { userId, client: clientToSave });
     }
 };
 
 export const deleteClientFromSupabase = async (clientId: string): Promise<void> => {
+    if (!isValidUUID(clientId)) {
+        console.warn('Skipping deletion of non-UUID client:', clientId);
+        return;
+    }
+
     if (!isSupabaseConfigured()) {
         addToSyncQueue('clients', 'delete', { clientId });
         return;
@@ -177,30 +189,48 @@ export const syncAppointments = async (userId: string): Promise<Appointment[]> =
 };
 
 export const saveAppointmentToSupabase = async (userId: string, appointment: Appointment): Promise<void> => {
+    // Ensure we have a valid UUID
+    let appointmentToSave = { ...appointment };
+    if (!isValidUUID(appointmentToSave.id)) {
+        console.warn('Invalid UUID detected for appointment, generating new one for sync:', appointmentToSave.id);
+        appointmentToSave.id = crypto.randomUUID();
+    }
+
+    // Also validate clientId if present
+    if (appointmentToSave.clientId && !isValidUUID(appointmentToSave.clientId)) {
+        console.warn('Invalid Client UUID in appointment, stripping it:', appointmentToSave.clientId);
+        appointmentToSave.clientId = '';
+    }
+
     if (!isSupabaseConfigured()) {
-        addToSyncQueue('appointments', 'insert', { userId, appointment });
+        addToSyncQueue('appointments', 'insert', { userId, appointment: appointmentToSave });
         return;
     }
 
     try {
         const { error } = await supabase.from('appointments').upsert({
-            id: appointment.id,
+            id: appointmentToSave.id,
             user_id: userId,
-            client_id: appointment.clientId || null,
-            date: appointment.date,
-            service: appointment.service,
-            price: appointment.price,
-            status: appointment.status
+            client_id: appointmentToSave.clientId || null,
+            date: appointmentToSave.date,
+            service: appointmentToSave.service,
+            price: appointmentToSave.price,
+            status: appointmentToSave.status
         });
 
         if (error) throw error;
     } catch (error) {
         console.error('Error saving appointment to Supabase:', error);
-        addToSyncQueue('appointments', 'insert', { userId, appointment });
+        addToSyncQueue('appointments', 'insert', { userId, appointment: appointmentToSave });
     }
 };
 
 export const deleteAppointmentFromSupabase = async (appointmentId: string): Promise<void> => {
+    if (!isValidUUID(appointmentId)) {
+        console.warn('Skipping deletion of non-UUID appointment:', appointmentId);
+        return;
+    }
+
     if (!isSupabaseConfigured()) {
         addToSyncQueue('appointments', 'delete', { appointmentId });
         return;
@@ -281,7 +311,7 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
                 email: profile.email,
                 logo: profile.logo,
                 company_name: profile.companyName,
-                is_pro: profile.isPro,
+                // is_pro is managed by server (webhooks) ONLY
                 updated_at: new Date().toISOString()
             }).eq('user_id', userId);
 
@@ -295,7 +325,7 @@ export const saveProfileToSupabase = async (userId: string, profile: UserProfile
                 email: profile.email,
                 logo: profile.logo,
                 company_name: profile.companyName,
-                is_pro: profile.isPro,
+                // is_pro defaults to false in DB
                 updated_at: new Date().toISOString()
             });
 

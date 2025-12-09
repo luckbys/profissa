@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastProvider } from './contexts/ToastContext';
 import App from './App';
 
 // Create a React Query client
@@ -22,7 +23,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );

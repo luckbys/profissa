@@ -1,19 +1,63 @@
+import { supabase } from './supabaseClient';
 import { SavedDocument, DocumentFilters } from '../types/documents';
 
 const DOCUMENTS_KEY = 'gerente_bolso_documents';
 
-// Get all saved documents
+// Get all saved documents (Local)
 export const getDocuments = (): SavedDocument[] => {
     try {
         const data = localStorage.getItem(DOCUMENTS_KEY);
         const docs = data ? JSON.parse(data) : [];
-        // Migration: Ensure all docs have a status
         return docs.map((d: any) => ({
             ...d,
             status: d.status || 'pending'
         }));
     } catch {
         return [];
+    }
+};
+
+// Fetch all documents (Local + Supabase NFS-e)
+export const fetchDocuments = async (userId?: string): Promise<SavedDocument[]> => {
+    const localDocs = getDocuments();
+
+    if (!userId) return localDocs;
+
+    try {
+        const { data: nfseDocs, error } = await supabase
+            .from('nfs_e')
+            .select('*, clients(name, phone)')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching NFS-e:', error);
+            return localDocs;
+        }
+
+        const mappedNfse: SavedDocument[] = nfseDocs.map(doc => ({
+            id: doc.id,
+            type: 'nfse',
+            clientId: doc.client_id,
+            clientName: doc.clients?.name || 'Cliente Desconhecido',
+            clientPhone: doc.clients?.phone || '',
+            documentNumber: doc.nfse_number ? `${doc.nfse_number}` : `RPS-${doc.rps_number || doc.id.slice(0, 8)}`,
+            createdAt: doc.created_at,
+            status: doc.status === 'authorized' ? 'paid' : (doc.status || 'pending'), // Map authorized to paid for UI or keep authorized if UI supports it
+            items: doc.items || [{ description: 'Serviço Prestado', price: doc.service_amount, quantity: 1 }],
+            total: doc.service_amount,
+            note: doc.description,
+            url_pdf: doc.url_pdf,
+            error_message: doc.error_message
+        }));
+
+        // Merge and sort
+        return [...localDocs, ...mappedNfse].sort((a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+    } catch (err) {
+        console.error('Fetch documents error:', err);
+        return localDocs;
     }
 };
 
@@ -52,40 +96,48 @@ export const toggleDocumentStatus = (id: string, status: 'pending' | 'paid' | 'o
     }
 };
 
-// Get filtered documents
-export const getFilteredDocuments = (filters: DocumentFilters): SavedDocument[] => {
-    let documents = getDocuments();
+// Filter helper
+export const filterDocuments = (documents: SavedDocument[], filters: DocumentFilters): SavedDocument[] => {
+    let result = [...documents];
 
     if (filters.type && filters.type !== 'all') {
-        documents = documents.filter(d => d.type === filters.type);
+        result = result.filter(d => d.type === filters.type);
     }
 
     if (filters.clientId) {
-        documents = documents.filter(d => d.clientId === filters.clientId);
+        result = result.filter(d => d.clientId === filters.clientId);
     }
 
     if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
-        documents = documents.filter(d =>
+        result = result.filter(d =>
             d.clientName.toLowerCase().includes(query) ||
             d.items.some(item => item.description.toLowerCase().includes(query))
         );
     }
 
     if (filters.dateFrom) {
-        documents = documents.filter(d => d.createdAt >= filters.dateFrom!);
+        result = result.filter(d => d.createdAt >= filters.dateFrom!);
     }
 
     if (filters.dateTo) {
-        documents = documents.filter(d => d.createdAt <= filters.dateTo!);
+        result = result.filter(d => d.createdAt <= filters.dateTo!);
     }
 
-    return documents;
+    return result;
+};
+
+// Get filtered documents (Legacy Local Only)
+export const getFilteredDocuments = (filters: DocumentFilters): SavedDocument[] => {
+    return filterDocuments(getDocuments(), filters);
 };
 
 // Generate document number
-export const generateDocumentNumber = (type: 'quote' | 'receipt'): string => {
-    const prefix = type === 'quote' ? 'ORC' : 'REC';
+export const generateDocumentNumber = (type: 'quote' | 'receipt' | 'nfse'): string => {
+    let prefix = 'DOC';
+    if (type === 'quote') prefix = 'ORC';
+    if (type === 'receipt') prefix = 'REC';
+    if (type === 'nfse') prefix = 'RPS';
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
     return `${prefix}-${timestamp}${random}`;

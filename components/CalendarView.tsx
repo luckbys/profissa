@@ -8,11 +8,19 @@ interface CalendarViewProps {
   clients: Client[];
   onAddAppointment: (appointment: Appointment) => void;
   onToggleStatus: (id: string) => void;
+  initialOpenModal?: boolean;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ appointments, clients, onAddAppointment, onToggleStatus }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ appointments, clients, onAddAppointment, onToggleStatus, initialOpenModal = false }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(initialOpenModal);
+
+  // Sync prop with state when it changes (specifically when opening from FAB)
+  React.useEffect(() => {
+    if (initialOpenModal) {
+      setIsModalOpen(true);
+    }
+  }, [initialOpenModal]);
 
   // New Appointment Form State
   const [newApt, setNewApt] = useState({

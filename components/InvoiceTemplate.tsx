@@ -12,7 +12,7 @@ interface InvoiceItem {
 export type InvoiceTemplateStyle = 'modern' | 'classic' | 'minimal' | 'elegant' | 'bold';
 
 interface InvoiceTemplateProps {
-    type: 'quote' | 'receipt';
+    type: 'quote' | 'receipt' | 'nfse';
     documentNumber: string;
     clientName: string;
     clientPhone?: string;
@@ -136,7 +136,7 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
                     <div className="flex justify-between items-start">
                         <div>
                             <h1 className="text-4xl font-black text-gray-900 tracking-tight">
-                                {isQuote ? 'ORÇAMENTO' : 'RECIBO'}
+                                {isQuote ? 'ORÇAMENTO' : (type === 'nfse' ? 'RPS - NOTA FISCAL' : 'RECIBO')}
                             </h1>
                             <p className="text-gray-500 mt-1 font-mono">#{documentNumber}</p>
                         </div>
@@ -227,7 +227,7 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
 
                     <div className="text-right">
                         <div className={`inline-block px-4 py-2 rounded-lg font-bold text-sm ${style.badgeStyle}`}>
-                            {isQuote ? 'ORÇAMENTO' : 'RECIBO'}
+                            {isQuote ? 'ORÇAMENTO' : (type === 'nfse' ? 'RPS - NOTA FISCAL' : 'RECIBO')}
                         </div>
                         <p className="opacity-60 text-xs mt-2 font-mono">#{documentNumber}</p>
                         <p className="opacity-80 text-xs mt-1">{dateFormatted}</p>
@@ -239,7 +239,7 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
                 {/* Client Info */}
                 <div className={`mb-8 ${style.tableBg} rounded-xl p-5`}>
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                        {isQuote ? 'Orçamento para' : 'Recibo emitido para'}
+                        {isQuote ? 'Orçamento para' : (type === 'nfse' ? 'Tomador do Serviço' : 'Recibo emitido para')}
                     </h3>
                     <p className="text-xl font-bold text-gray-900">{clientName}</p>
                     {clientPhone && <p className="text-gray-600 text-sm mt-1">📞 {clientPhone}</p>}

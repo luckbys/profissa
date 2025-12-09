@@ -1,237 +1,107 @@
 import React, { useState, useEffect } from 'react';
 import { Client, UserProfile, Expense, Appointment } from '../types';
-import { Sparkles, Receipt, MinusCircle, TrendingUp, TrendingDown, DollarSign, PieChart, Plus } from 'lucide-react';
-import { professionalizeDescription, estimateServicePrice } from '../services/geminiService';
+import { Receipt, MinusCircle, ChevronDown, Tag, FileText } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
-import { saveDocument, generateDocumentNumber, getDocumentStats } from '../services/documentService';
+import { getDocuments, getDocumentStats } from '../services/documentService';
 import { getMonthlyCashFlow, getExpenses } from '../services/expenseService';
 import { SavedDocument } from '../types/documents';
-import { ServiceTemplate } from '../types/serviceTemplate';
 import CreditsDisplay from './CreditsDisplay';
-import ServiceTemplateSelector from './ServiceTemplateSelector';
 import ExpenseForm from './ExpenseForm';
-import {
-  Send, Download, Trash2, CircleDollarSign, Loader2, Briefcase, X, ChevronDown, Wand2, AlertCircle, FileText, Tag
-} from 'lucide-react';
-import InvoiceTemplate, { InvoiceTemplateStyle } from './InvoiceTemplate';
-import DocumentCustomizer, { DocumentCustomization, DEFAULT_CUSTOMIZATION } from './DocumentCustomizer';
 import CashFlowWidget from './CashFlowWidget';
+import { fiscalService } from '../services/fiscalService';
+import { useAuth } from '../hooks/useAuth';
 
 interface FinanceProps {
   clients: Client[];
   userProfile?: UserProfile;
   onViewHistory?: () => void;
-  initialTab?: 'overview' | 'documents' | 'expenses';
-  initialType?: 'quote' | 'receipt';
-  initialClientId?: string;
+  onNewDocument?: () => void;
+  initialTab?: 'overview' | 'expenses';
   appointments?: Appointment[];
 }
 
 const Finance: React.FC<FinanceProps> = ({
-  clients,
   userProfile,
   onViewHistory,
+  onNewDocument,
   initialTab = 'overview',
-  initialType = 'quote',
-  initialClientId = '',
   appointments = []
 }) => {
   // Tab State
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'expenses'>(initialTab);
-
-  // Document State
-  const [selectedClientId, setSelectedClientId] = useState(initialClientId);
-  const [type, setType] = useState<'quote' | 'receipt'>(initialType);
-
-  // Effect to update state if props change (re-navigation)
-  useEffect(() => {
-    setActiveTab(initialTab);
-    if (initialType) setType(initialType);
-    if (initialClientId) setSelectedClientId(initialClientId);
-  }, [initialTab, initialType, initialClientId]);
-
-  const [items, setItems] = useState<any[]>([]); // Using any for simplicity in this huge file refactor
-  const [newItemDesc, setNewItemDesc] = useState('');
-  const [newItemPrice, setNewItemPrice] = useState('');
-  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [isPricingAI, setIsPricingAI] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const [showNoCreditsWarning, setShowNoCreditsWarning] = useState(false);
-  const [docCustomization, setDocCustomization] = useState<DocumentCustomization>(DEFAULT_CUSTOMIZATION);
+  const [activeTab, setActiveTab] = useState<'overview' | 'expenses'>(initialTab);
+  const { user } = useAuth();
+  const [nfseList, setNfseList] = useState<any[]>([]); // State for NFS-e list
 
   // Expense State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashFlow, setCashFlow] = useState({ revenue: 0, expenses: 0, profit: 0 });
 
-  const { subscription, canGenerateDocument, useCredit, upgradeToPro } = useSubscription(userProfile);
-  const selectedClient = clients.find(c => c.id === selectedClientId);
+  const { subscription, upgradeToPro } = useSubscription(userProfile);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      refreshData();
+      fetchNfseList();
+    }
+  }, [activeTab]);
+
+  const fetchNfseList = async () => {
+    if (!user?.id) return;
+    const notes = await fiscalService.getInvoices(user.id);
+    setNfseList(notes || []);
+  };
 
   const refreshData = async () => {
-    const stats = getDocumentStats();
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    try {
+      const localDocs = getDocuments();
 
-    // Calculate revenue from Paid documents + Receipts (assuming receipts are paid)
-    // For simplicity using totalValue form stats for now, but ideally should filter by month
-    const monthlyRevenue = stats.paidValue + stats.receipts * (stats.totalValue / (stats.quotes + stats.receipts || 1));
+      const formattedNfse = nfseList.map((n: any): SavedDocument => ({
+        id: n.id,
+        type: 'nfse',
+        clientId: n.client_id || '',
+        clientName: n.clients?.name || 'Cliente',
+        createdAt: n.created_at, // Use createdAt instead of date
+        total: n.service_amount,
+        items: [],
+        documentNumber: n.nfse_number ? `NFS-e ${n.nfse_number}` : `RPS ${n.dps_number || 'Provisório'}`,
+        status: n.status === 'authorized' ? 'authorized' : n.status === 'error' ? 'error' : 'pending',
+        url_pdf: n.url_pdf,
+        error_message: n.error_message,
+        clientPhone: n.clients?.phone || ''
+      }));
 
-    const flow = await getMonthlyCashFlow(stats.paidValue, currentMonth, currentYear);
-    const expenseList = await getExpenses();
+      const allDocs = [...localDocs, ...formattedNfse].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    setExpenses(expenseList);
-    setCashFlow({
-      revenue: stats.paidValue, // Using explicit paid value
-      expenses: flow.expenses,
-      profit: stats.paidValue - flow.expenses
-    });
+      // Calculate Revenue for current month
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+
+      const monthlyRevenue = allDocs
+        .filter(doc => {
+          const d = new Date(doc.createdAt);
+          return d.getMonth() === currentMonth && d.getFullYear() === currentYear && doc.status !== 'error';
+        })
+        .reduce((sum, doc) => sum + doc.total, 0);
+
+      const cashFlowData = await getMonthlyCashFlow(monthlyRevenue, currentMonth, currentYear);
+      setCashFlow(cashFlowData);
+
+      const expensesData = await getExpenses();
+      setExpenses(expensesData || []);
+    } catch (error) {
+      console.error("Error loading finance data:", error);
+    }
   };
 
   useEffect(() => {
     refreshData();
-  }, [activeTab]);
-
-  // Document Handlers (Simplified for brevity, same methodology as original)
-  const handleAddItem = () => {
-    if (!newItemDesc || !newItemPrice) return;
-    setItems([...items, { id: Date.now().toString(), description: newItemDesc, quantity: 1, price: parseFloat(newItemPrice) }]);
-    setNewItemDesc('');
-    setNewItemPrice('');
-  };
-
-  const handleRemoveItem = (id: string) => setItems(items.filter(i => i.id !== id));
-
-  const handleAIImprovement = async () => {
-    if (!newItemDesc) return;
-    setIsGeneratingAI(true);
-    const improved = await professionalizeDescription(newItemDesc);
-    setNewItemDesc(improved);
-    setIsGeneratingAI(false);
-  };
-
-  const handlePriceSuggestion = async () => {
-    if (!newItemDesc) return;
-    setIsPricingAI(true);
-    const estimatedPrice = await estimateServicePrice(newItemDesc);
-    if (estimatedPrice && estimatedPrice !== '0') setNewItemPrice(estimatedPrice);
-    setIsPricingAI(false);
-  };
-
-  const total = items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-
-  const handleGenerateDocument = () => {
-    if (!canGenerateDocument) {
-      setShowNoCreditsWarning(true);
-      return;
-    }
-    if (useCredit() && selectedClient) {
-      const docToSave: SavedDocument = {
-        id: Date.now().toString(),
-        type,
-        clientId: selectedClientId,
-        clientName: selectedClient.name,
-        clientPhone: selectedClient.phone,
-        items: [...items],
-        total,
-        createdAt: new Date().toISOString(),
-        documentNumber: generateDocumentNumber(type),
-        status: type === 'receipt' ? 'paid' : 'pending' // Receipts are paid by default
-      };
-      saveDocument(docToSave);
-      setShowPreview(true);
-      refreshData(); // Update stats
-    } else {
-      setShowNoCreditsWarning(true);
-    }
-  };
-
-  // PDF Generation & WhatsApp Link (Keep existing logic)
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById('invoice-preview');
-    if (!element) return;
-    setIsDownloading(true);
-    const filename = `${type === 'quote' ? 'orcamento' : 'recibo'}_${selectedClient?.name.replace(/\s+/g, '_')}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
-    const opt = { margin: [10, 10, 10, 10], filename: filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, letterRendering: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-
-    try {
-      // @ts-ignore
-      await window.html2pdf().set(opt).from(element).save();
-    } catch (error) { console.error(error); alert("Erro ao gerar PDF."); }
-    finally { setIsDownloading(false); }
-  };
-
-  const generateWhatsAppLink = () => {
-    if (!selectedClient) return '#';
-    const lineItems = items.map(i => `• ${i.description}: R$ ${i.price.toFixed(2)}`).join('\n');
-    const message = `Olá ${selectedClient.name}!\n\nSegue o ${type === 'quote' ? 'orçamento' : 'recibo'} solicitado:\n\n${lineItems}\n\n*Total: R$ ${total.toFixed(2)}*\n\nFico à disposição!`;
-    return `https://wa.me/${selectedClient.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-  };
-
-  // Render Preview Modal with Professional Template
-  if (showPreview && selectedClient) {
-    const documentNumber = generateDocumentNumber(type);
-
-    return (
-      <div className="fixed inset-0 bg-gray-900/95 backdrop-blur-sm z-50 flex flex-col h-full">
-        {/* Header */}
-        <div className="bg-gray-800 p-3 flex justify-between items-center px-4 shrink-0">
-          <span className="text-gray-400 text-xs font-medium">
-            Visualização do {type === 'quote' ? 'Orçamento' : 'Recibo'}
-          </span>
-          <button onClick={() => setShowPreview(false)} className="text-white hover:text-gray-300">
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Scrollable Preview Area */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-100">
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-2xl mx-auto">
-            <InvoiceTemplate
-              type={type}
-              documentNumber={documentNumber}
-              clientName={selectedClient.name}
-              clientPhone={selectedClient.phone}
-              clientEmail={selectedClient.email}
-              clientAddress={selectedClient.address}
-              items={items}
-              total={total}
-              createdAt={new Date().toISOString()}
-              userProfile={userProfile}
-              templateStyle={docCustomization.template}
-              validityDays={docCustomization.validityDays}
-              showWatermark={docCustomization.showWatermark}
-              showSignature={docCustomization.showSignature}
-              showPaymentMethods={docCustomization.showPaymentMethods}
-              paymentMethods={docCustomization.paymentMethods}
-              showLogo={docCustomization.showLogo}
-              notes={docCustomization.customNotes}
-            />
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="p-4 bg-white border-t border-gray-200 flex gap-3 shrink-0">
-          <a
-            href={generateWhatsAppLink()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg"
-          >
-            <Send size={18} /> WhatsApp
-          </a>
-          <button
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-            className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg disabled:opacity-50"
-          >
-            {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-            {isDownloading ? 'Gerando...' : 'Baixar PDF'}
-          </button>
-        </div>
-      </div>
-    );
-  }
+  }, [activeTab, nfseList]);
 
 
   return (
@@ -250,10 +120,6 @@ const Finance: React.FC<FinanceProps> = ({
           onClick={() => setActiveTab('overview')}
           className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'overview' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}
         >Visão Geral</button>
-        <button
-          onClick={() => setActiveTab('documents')}
-          className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'documents' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}
-        >Documentos</button>
         <button
           onClick={() => setActiveTab('expenses')}
           className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'expenses' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}
@@ -274,7 +140,7 @@ const Finance: React.FC<FinanceProps> = ({
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => setActiveTab('documents')}
+              onClick={onNewDocument}
               className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm"
             >
               <div className="bg-green-100 p-2 rounded-lg">
@@ -307,61 +173,6 @@ const Finance: React.FC<FinanceProps> = ({
               </div>
             </div>
             <ChevronDown size={20} className="text-gray-400 -rotate-90" />
-          </button>
-        </div>
-      )}
-
-      {/* DOCUMENTS TAB (Legacy Finance view) */}
-      {activeTab === 'documents' && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {/* Type Selection */}
-            <div className="p-4 pb-0">
-              <div className="bg-gray-100 p-1.5 rounded-xl flex relative">
-                <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === 'quote' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`} onClick={() => setType('quote')}>Orçamento</button>
-                <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === 'receipt' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`} onClick={() => setType('receipt')}>Recibo</button>
-              </div>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* Client & Items Form Inputs (Simplified) */}
-              <select className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)}>
-                <option value="">Selecione o Cliente...</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-
-              <ServiceTemplateSelector onSelect={(t: ServiceTemplate) => { setNewItemDesc(t.description); setNewItemPrice(t.price.toString()); }} currentDescription={newItemDesc} currentPrice={newItemPrice ? parseFloat(newItemPrice) : undefined} />
-
-              <textarea placeholder="Descrição..." className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200" value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)} />
-              <div className="flex gap-2">
-                <input type="number" placeholder="0.00" className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} />
-                <button onClick={handleAddItem} className="bg-gray-900 text-white p-3 rounded-xl"><Plus /></button>
-              </div>
-            </div>
-
-            {/* Items List */}
-            {items.length > 0 && (
-              <div className="bg-gray-50 p-4 border-t border-dashed border-gray-200">
-                {items.map(i => (
-                  <div key={i.id} className="flex justify-between text-sm mb-2"><span>{i.description}</span><span className="font-bold">R$ {i.price.toFixed(2)}</span></div>
-                ))}
-                <div className="flex justify-between font-bold text-lg mt-3 pt-3 border-t border-gray-200"><span>Total</span><span>R$ {total.toFixed(2)}</span></div>
-              </div>
-            )}
-
-            {/* Document Customizer (Pro Feature) */}
-            <div className="p-4 border-t border-gray-100">
-              <DocumentCustomizer
-                customization={docCustomization}
-                onChange={setDocCustomization}
-                isPro={userProfile?.isPro || false}
-                onUpgrade={upgradeToPro}
-              />
-            </div>
-          </div>
-
-          <button onClick={handleGenerateDocument} disabled={items.length === 0 || !selectedClientId} className="w-full bg-brand-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:shadow-none">
-            Gerar {type === 'quote' ? 'Orçamento' : 'Recibo'}
           </button>
         </div>
       )}
@@ -405,15 +216,6 @@ const Finance: React.FC<FinanceProps> = ({
         onClose={() => setIsExpenseModalOpen(false)}
         onExpenseAdded={refreshData}
       />
-
-      {showNoCreditsWarning && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 rounded-2xl max-w-sm text-center">
-            <h3 className="font-bold text-xl mb-2">Sem créditos!</h3>
-            <button onClick={() => setShowNoCreditsWarning(false)} className="text-gray-500">Fechar</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

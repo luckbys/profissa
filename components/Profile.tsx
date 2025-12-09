@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Appointment, Client, UserProfile } from '../types';
-import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download, AlertTriangle, Lock, Unlock, Link2 } from 'lucide-react';
+import { User, Briefcase, Phone, Mail, Edit2, Save, Award, TrendingUp, Users, DollarSign, CalendarCheck, Building2, Upload, X, Loader2, ShieldCheck, Shield, Download, AlertTriangle, Lock, Unlock, Link2, PieChart } from 'lucide-react';
 import { exportData, importData } from '../services/backupService';
 import { setPIN, removePIN, hasPIN, isAppLocked } from '../services/authService';
 import LockScreen from './LockScreen';
 import ProPlanModal from './ProPlanModal';
 import BookingSettings from './BookingSettings';
+import { FiscalSettings } from './FiscalSettings';
 import { redirectToCustomerPortal } from '../services/stripeService';
 
 interface ProfileProps {
@@ -14,9 +15,10 @@ interface ProfileProps {
   appointments: Appointment[];
   clients: Client[];
   onSignOut: () => void;
+  onViewFinance?: () => void;
 }
 
-const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appointments, clients, onSignOut }) => {
+const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appointments, clients, onSignOut, onViewFinance }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState(userProfile);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +256,13 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
             </div>
           </div>
         )}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors" onClick={onViewFinance}>
+          <div className="flex items-center gap-2 mb-2">
+            <PieChart className="text-brand-600" />
+            <h2 className="text-lg font-bold text-gray-800">Financeiro</h2>
+          </div>
+          <p className="text-sm text-gray-500">Acesse seus relatórios e despesas.</p>
+        </div>
       </div>
 
       {/* SEGURANÇA OPÇÕES */}
@@ -304,6 +313,9 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
           </button>
         </div>
       </div>
+
+      {/* Fiscal Settings Section */}
+      <FiscalSettings />
 
       {/* Booking Settings Modal */}
       <BookingSettings

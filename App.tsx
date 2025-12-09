@@ -12,6 +12,7 @@ import SyncIndicator from './components/SyncIndicator';
 import NotificationCenter from './components/NotificationCenter';
 import DocumentHistory from './components/DocumentHistory';
 import AICoach from './components/AICoach';
+import DocumentGenerator from './components/DocumentGenerator';
 import LockScreen from './components/LockScreen';
 import BookingPage from './components/BookingPage';
 import AuthScreen from './components/AuthScreen';
@@ -62,9 +63,10 @@ const App: React.FC = () => {
   };
 
   // Navigation State for FAB actions
-  const [financeInitialTab, setFinanceInitialTab] = useState<'overview' | 'documents' | 'expenses'>('overview');
-  const [financeInitialType, setFinanceInitialType] = useState<'quote' | 'receipt'>('quote');
+  const [financeInitialTab, setFinanceInitialTab] = useState<'overview' | 'expenses'>('overview');
+  const [financeInitialType, setFinanceInitialType] = useState<'quote' | 'receipt' | 'nfse'>('quote');
   const [financeInitialClientId, setFinanceInitialClientId] = useState<string>('');
+  const [calendarInitialOpenModal, setCalendarInitialOpenModal] = useState(false);
 
   const {
     clients,
@@ -125,18 +127,22 @@ const App: React.FC = () => {
     await toggleAppointmentStatus(id);
   };
 
-  const handleFabAction = (type: 'quote' | 'receipt') => {
-    setFinanceInitialTab('documents');
+  const handleFabAction = (type: 'quote' | 'receipt' | 'nfse') => {
     setFinanceInitialType(type);
-    setCurrentView('finance');
+    setCurrentView('documents');
+    setIsFabOpen(false);
+  };
+
+  const handleFabAgenda = () => {
+    setCurrentView('calendar');
+    setCalendarInitialOpenModal(true);
     setIsFabOpen(false);
   };
 
   const handleGenerateDocument = (clientId: string, type: 'quote' | 'receipt') => {
-    setFinanceInitialTab('documents');
     setFinanceInitialType(type);
     setFinanceInitialClientId(clientId);
-    setCurrentView('finance');
+    setCurrentView('documents');
   };
 
   // Reset finance props when navigating manually
@@ -144,6 +150,9 @@ const App: React.FC = () => {
     if (view === 'finance') {
       setFinanceInitialTab('overview'); // Default view
       setFinanceInitialClientId('');
+    }
+    if (view === 'calendar') {
+      setCalendarInitialOpenModal(false);
     }
     setCurrentView(view);
     setIsFabOpen(false);
@@ -230,6 +239,7 @@ const App: React.FC = () => {
             clients={clients}
             onAddAppointment={handleAddAppointment}
             onToggleStatus={handleToggleStatus}
+            initialOpenModal={calendarInitialOpenModal}
           />
         );
       case 'finance':
@@ -238,10 +248,19 @@ const App: React.FC = () => {
             clients={clients}
             userProfile={userProfile}
             onViewHistory={() => setCurrentView('history')}
+            onNewDocument={() => setCurrentView('documents')}
             initialTab={financeInitialTab}
+            appointments={appointments}
+          />
+        );
+      case 'documents':
+        return (
+          <DocumentGenerator
+            clients={clients}
+            userProfile={userProfile}
             initialType={financeInitialType}
             initialClientId={financeInitialClientId}
-            appointments={appointments}
+            onNavigateToHistory={() => setCurrentView('history')}
           />
         );
       case 'profile':
@@ -252,6 +271,7 @@ const App: React.FC = () => {
             appointments={appointments}
             clients={clients}
             onSignOut={signOut}
+            onViewFinance={() => setCurrentView('finance')}
           />
         );
       case 'coach':
@@ -319,26 +339,26 @@ const App: React.FC = () => {
           <span className="text-white text-xs font-bold bg-gray-900/80 px-2 py-1 rounded-md">Orçamento</span>
         </div>
 
-        {/* AI Coach Button (Center/Highlight) */}
+        {/* Nota Fiscal Button (Center/Highlight) */}
         <div className="flex flex-col items-center gap-2 -translate-y-4">
           <button
-            onClick={() => { setCurrentView('coach'); setIsFabOpen(false); }}
+            onClick={() => handleFabAction('nfse')}
             className="w-16 h-16 bg-purple-600 text-white rounded-full shadow-xl shadow-purple-500/30 flex items-center justify-center hover:bg-purple-700 transition-colors border-4 border-gray-50"
           >
-            <Bot size={32} />
+            <ReceiptText size={32} />
           </button>
-          <span className="text-white text-xs font-bold bg-purple-900/80 px-2 py-1 rounded-md">IA Coach</span>
+          <span className="text-white text-xs font-bold bg-purple-900/80 px-2 py-1 rounded-md">Nota Fiscal</span>
         </div>
 
-        {/* Receipt Button */}
+        {/* Agenda Button (Changed from Receipt) */}
         <div className="flex flex-col items-center gap-2">
           <button
-            onClick={() => handleFabAction('receipt')}
+            onClick={handleFabAgenda}
             className="w-14 h-14 bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-green-700 transition-colors"
           >
-            <ReceiptText size={24} />
+            <CalendarDays size={24} />
           </button>
-          <span className="text-white text-xs font-bold bg-gray-900/80 px-2 py-1 rounded-md">Recibo</span>
+          <span className="text-white text-xs font-bold bg-gray-900/80 px-2 py-1 rounded-md">Agenda</span>
         </div>
 
       </div>

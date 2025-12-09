@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { SavedDocument, DocumentFilters } from '../types/documents';
+import { useAuth } from '../hooks/useAuth';
 import {
     getDocuments,
     deleteDocument,
@@ -7,11 +9,15 @@ import {
     generateDocumentWhatsAppLink,
     duplicateDocument,
     saveDocument,
-    toggleDocumentStatus
+    toggleDocumentStatus,
+    fetchDocuments,
+    filterDocuments
 } from '../services/documentService';
 import {
     FileText, Receipt, Search, Filter, Send, Copy, Trash2,
-    Eye, ChevronDown, X, Calendar, Clock, MoreVertical, CheckCircle2, AlertCircle
+
+    Eye, ChevronDown, X, Calendar, Clock, MoreVertical, CheckCircle2, AlertCircle,
+    ScrollText, ExternalLink, Ban, Info
 } from 'lucide-react';
 
 interface DocumentHistoryProps {
@@ -19,6 +25,8 @@ interface DocumentHistoryProps {
 }
 
 const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
+    const { showToast } = useToast();
+    const { user } = useAuth();
     const [documents, setDocuments] = useState<SavedDocument[]>([]);
     const [filters, setFilters] = useState<DocumentFilters>({ type: 'all' });
     const [searchQuery, setSearchQuery] = useState('');
@@ -28,10 +36,11 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
     // Load documents
     useEffect(() => {
         loadDocuments();
-    }, [filters]);
+    }, [filters, user?.id]);
 
-    const loadDocuments = () => {
-        const filtered = getFilteredDocuments({
+    const loadDocuments = async () => {
+        const allDocs = await fetchDocuments(user?.id);
+        const filtered = filterDocuments(allDocs, {
             ...filters,
             searchQuery: searchQuery || undefined
         });
@@ -41,12 +50,13 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
     useEffect(() => {
         const timer = setTimeout(loadDocuments, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, user?.id]);
 
     const handleDelete = (id: string) => {
         if (confirm('Excluir este documento?')) {
             deleteDocument(id);
             loadDocuments();
+            showToast('Documento excluído', 'O documento foi removido com sucesso.', 'success');
         }
         setActionMenuId(null);
     };
@@ -55,6 +65,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
         const newDoc = duplicateDocument(doc);
         saveDocument(newDoc);
         loadDocuments();
+        showToast('Documento duplicado', 'Um novo rascunho foi criado.', 'success');
         if (onDuplicate) {
             onDuplicate(newDoc);
         }
@@ -64,6 +75,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
     const handleStatusChange = (id: string, newStatus: 'pending' | 'paid' | 'overdue') => {
         toggleDocumentStatus(id, newStatus);
         loadDocuments();
+        showToast('Status atualizado', `Documento marcado como ${getStatusLabel(newStatus)}.`, 'success');
         setActionMenuId(null);
     };
 
@@ -93,7 +105,9 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'paid': return 'text-green-600 bg-green-50 border-green-100';
+            case 'authorized': return 'text-purple-600 bg-purple-50 border-purple-100';
             case 'overdue': return 'text-red-600 bg-red-50 border-red-100';
+            case 'error': return 'text-red-600 bg-red-50 border-red-100';
             default: return 'text-amber-600 bg-amber-50 border-amber-100';
         }
     };
@@ -101,7 +115,9 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
     const getStatusLabel = (status: string) => {
         switch (status) {
             case 'paid': return 'Pago';
+            case 'authorized': return 'Autorizada';
             case 'overdue': return 'Vencido';
+            case 'error': return 'Falha';
             default: return 'Pendente';
         }
     };
@@ -132,6 +148,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                     <button onClick={() => setFilters({ ...filters, type: 'all' })} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filters.type === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'}`}>Todos</button>
                     <button onClick={() => setFilters({ ...filters, type: 'quote' })} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filters.type === 'quote' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>Orçamentos</button>
                     <button onClick={() => setFilters({ ...filters, type: 'receipt' })} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filters.type === 'receipt' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600'}`}>Recibos</button>
+                    <button onClick={() => setFilters({ ...filters, type: 'nfse' })} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${filters.type === 'nfse' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-600'}`}>Notas Fiscais</button>
                 </div>
             </div>
 
@@ -148,8 +165,13 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                             <div className="flex items-start justify-between">
                                 {/* Left */}
                                 <div className="flex items-start gap-3">
-                                    <div className={`p-2.5 rounded-xl ${doc.type === 'quote' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600'}`}>
-                                        {doc.type === 'quote' ? <FileText size={20} /> : <Receipt size={20} />}
+                                    <div className={`p-2.5 rounded-xl ${doc.type === 'quote' ? 'bg-blue-50 text-blue-600' :
+                                        doc.type === 'nfse' ? 'bg-purple-50 text-purple-600' :
+                                            'bg-green-50 text-green-600'
+                                        }`}>
+                                        {doc.type === 'quote' ? <FileText size={20} /> :
+                                            doc.type === 'nfse' ? <ScrollText size={20} /> :
+                                                <Receipt size={20} />}
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-gray-800">{doc.clientName}</h3>
@@ -199,10 +221,36 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                                                     </div>
 
                                                     <button onClick={() => setSelectedDoc(doc)} className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Eye size={16} /> Visualizar</button>
+                                                    {doc.url_pdf && (
+                                                        <button onClick={() => window.open(doc.url_pdf, '_blank')} className="w-full px-4 py-2.5 text-left text-sm text-purple-600 hover:bg-purple-50 flex items-center gap-2"><ExternalLink size={16} /> Ver PDF</button>
+                                                    )}
                                                     <button onClick={() => handleResend(doc)} className="w-full px-4 py-2.5 text-left text-sm text-green-600 hover:bg-green-50 flex items-center gap-2"><Send size={16} /> Reenviar</button>
                                                     <button onClick={() => handleDuplicate(doc)} className="w-full px-4 py-2.5 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"><Copy size={16} /> Duplicar</button>
                                                     <hr className="my-1 border-gray-100" />
-                                                    <button onClick={() => handleDelete(doc.id)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={16} /> Excluir</button>
+                                                    {doc.type === 'nfse' ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => {
+                                                                    showToast('Funcionalidade indisponível', 'O cancelamento de notas fiscais será habilitado em breve.', 'warning');
+                                                                    setActionMenuId(null);
+                                                                }}
+                                                                className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                                            >
+                                                                <Ban size={16} /> Cancelar Nota
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedDoc(doc);
+                                                                    setActionMenuId(null);
+                                                                }}
+                                                                className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                            >
+                                                                <Info size={16} /> Informações
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <button onClick={() => handleDelete(doc.id)} className="w-full px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={16} /> Excluir</button>
+                                                    )}
                                                 </div>
                                             </>
                                         )}
@@ -219,7 +267,9 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                            <h3 className="font-bold text-gray-800">{selectedDoc.type === 'quote' ? 'Orçamento' : 'Recibo'} #{selectedDoc.documentNumber}</h3>
+                            <h3 className="font-bold text-gray-800">
+                                {selectedDoc.type === 'quote' ? 'Orçamento' : selectedDoc.type === 'nfse' ? 'Nota Fiscal' : 'Recibo'} #{selectedDoc.documentNumber}
+                            </h3>
                             <button onClick={() => setSelectedDoc(null)}><X size={20} className="text-gray-500" /></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -231,13 +281,37 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                                         Status: {getStatusLabel(selectedDoc.status)}
                                     </span>
                                 </div>
+                                {selectedDoc.status === 'error' && selectedDoc.error_message && (
+                                    <div className="mt-3 bg-red-50 border border-red-100 rounded-lg p-3 flex items-start gap-2">
+                                        <Ban size={16} className="text-red-500 mt-0.5" />
+                                        <div>
+                                            <p className="text-xs font-bold text-red-700">Falha na Emissão</p>
+                                            <p className="text-xs text-red-600 mt-1">{selectedDoc.error_message}</p>
+                                        </div>
+                                    </div>
+                                )}
+                                {selectedDoc.type === 'nfse' && (
+                                    <div className="mt-3 bg-gray-50 rounded-lg p-3 text-xs space-y-1">
+                                        <div className="flex justify-between"><span className="text-gray-500">Número da Nota:</span> <span className="font-mono">{selectedDoc.documentNumber}</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Ambiente:</span> <span className="font-medium">Homologação</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Emissão:</span> <span>{new Date(selectedDoc.createdAt).toLocaleString()}</span></div>
+                                    </div>
+                                )}
+                                {selectedDoc.url_pdf && (
+                                    <button
+                                        onClick={() => window.open(selectedDoc.url_pdf, '_blank')}
+                                        className="mt-3 w-full py-2 bg-purple-600 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-purple-700 transition"
+                                    >
+                                        <ExternalLink size={16} /> Abrir PDF da Nota
+                                    </button>
+                                )}
                             </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase font-medium mb-2">Itens</p>
-                                <div className="space-y-2">{selectedDoc.items.map((item, index) => (<div key={index} className="flex justify-between text-sm"><span className="text-gray-700">{item.description}</span><span className="font-medium text-gray-800">R$ {item.price.toFixed(2)}</span></div>))}</div>
-                            </div>
-                            <div className="bg-brand-50 rounded-xl p-4 flex justify-between items-center"><span className="font-medium text-brand-700">Total</span><span className="text-2xl font-bold text-brand-700">R$ {selectedDoc.total.toFixed(2)}</span></div>
                         </div>
+                        <div>
+                            <p className="text-xs text-gray-500 uppercase font-medium mb-2">Itens</p>
+                            <div className="space-y-2">{selectedDoc.items.map((item, index) => (<div key={index} className="flex justify-between text-sm"><span className="text-gray-700">{item.description}</span><span className="font-medium text-gray-800">R$ {item.price.toFixed(2)}</span></div>))}</div>
+                        </div>
+                        <div className="bg-brand-50 rounded-xl p-4 flex justify-between items-center"><span className="font-medium text-brand-700">Total</span><span className="text-2xl font-bold text-brand-700">R$ {selectedDoc.total.toFixed(2)}</span></div>
                     </div>
                 </div>
             )}

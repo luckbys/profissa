@@ -21,7 +21,7 @@ import { isAppLocked, unlockApp } from './services/authService';
 import { getDocuments } from './services/documentService';
 import {
   LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText,
-  Plus, X, FilePlus, Bot
+  Plus, X, FilePlus, Bot, DollarSign
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -288,7 +288,19 @@ const App: React.FC = () => {
 
       {/* Top Header Bar with Network Status and Notification Bell */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleNavigation('profile')}
+            className={`flex items-center justify-center p-1 rounded-full transition-all border-2 ${currentView === 'profile' ? 'border-brand-600' : 'border-gray-100'}`}
+          >
+            {userProfile?.logo ? (
+              <img src={userProfile.logo} alt="Avatar" className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                <UserCircle size={20} />
+              </div>
+            )}
+          </button>
           <span className="text-lg font-bold bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">Profissa</span>
         </div>
         <div className="flex items-center gap-2">
@@ -398,11 +410,11 @@ const App: React.FC = () => {
         </button>
 
         <button
-          onClick={() => handleNavigation('profile')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'profile' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+          onClick={() => handleNavigation('finance')}
+          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'finance' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <UserCircle size={24} strokeWidth={currentView === 'profile' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Perfil</span>
+          <DollarSign size={24} strokeWidth={currentView === 'finance' ? 2.5 : 2} />
+          <span className="text-[10px] font-medium">Finanças</span>
         </button>
       </nav>
     </div>

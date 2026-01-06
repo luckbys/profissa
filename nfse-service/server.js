@@ -82,7 +82,7 @@ app.post('/emit-nfse', async (req, res) => {
             // Store Nuvem Fiscal ID for status polling
             updatePayload.nuvem_id = data.id || null;
         } else {
-            updatePayload.status = 'error';
+            updatePayload.status = 'rejected';
             updatePayload.error_message = nuvemResponse.erro || 'Erro desconhecido na Nuvem Fiscal';
             updatePayload.xml_return = JSON.stringify(nuvemResponse); // Store full error for debug
         }
@@ -154,9 +154,10 @@ app.post('/check-status', async (req, res) => {
             updatePayload.auth_code = data.codigo_verificacao || null;
             updatePayload.url_pdf = data.link_url || null;
             updatePayload.xml_return = JSON.stringify(data);
-        } else if (data.status === 'rejeitada' || data.status === 'erro') {
-            updatePayload.status = 'error';
+        } else if (data.status === 'rejeitada' || data.status === 'erro' || data.status === 'negada') {
+            updatePayload.status = 'rejected';
             updatePayload.error_message = data.mensagens?.[0]?.descricao || 'NFS-e rejeitada pela prefeitura';
+            updatePayload.xml_return = JSON.stringify(data);
         }
         // If still processing, don't update status
 
@@ -165,12 +166,20 @@ app.post('/check-status', async (req, res) => {
             .update(updatePayload)
             .eq('id', invoiceId);
 
+        // Extract error messages if present
+        const mensagens = data.mensagens || [];
+        const primeiroErro = mensagens[0]?.descricao || null;
+        const codigoErro = mensagens[0]?.codigo || null;
+
         return res.json({
             sucesso: true,
             status: data.status,
             numero: data.numero,
             link_url: data.link_url,
-            codigo_verificacao: data.codigo_verificacao
+            codigo_verificacao: data.codigo_verificacao,
+            mensagem: primeiroErro,
+            codigo_erro: codigoErro,
+            todas_mensagens: mensagens
         });
 
     } catch (error) {

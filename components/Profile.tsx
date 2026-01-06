@@ -206,115 +206,173 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
         </button>
       </header>
 
-      {/* User Card - Compact */}
-      <div className="bg-gradient-to-br from-brand-600 to-brand-800 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -translate-y-10 translate-x-10"></div>
+      {/* User Card - Premium Redesign */}
+      <div className="bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden transition-all hover:shadow-brand-500/20">
+        {/* Decorative background elements */}
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-20 translate-x-20"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl -translate-x-10 translate-y-10"></div>
 
         {isEditing ? (
-          <div className="space-y-3 relative z-10">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-brand-200 uppercase font-bold">Nome</label>
+          <div className="space-y-4 relative z-10 animate-in fade-in duration-300">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/60 uppercase font-black tracking-wider">Nome</label>
                 <input
                   value={formData.name}
                   onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all text-sm"
+                  placeholder="Seu nome"
                 />
               </div>
-              <div>
-                <label className="text-xs text-brand-200 uppercase font-bold">Profissão</label>
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/60 uppercase font-black tracking-wider">Profissão</label>
                 <input
                   value={formData.profession}
                   onChange={e => setFormData({ ...formData, profession: e.target.value })}
-                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all text-sm"
+                  placeholder="Ex: Eletricista"
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-brand-200 uppercase font-bold">Telefone</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/60 uppercase font-black tracking-wider">Telefone</label>
                 <input
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all text-sm"
+                  placeholder="(00) 00000-0000"
                 />
               </div>
-              <div>
-                <label className="text-xs text-brand-200 uppercase font-bold">Email</label>
+              <div className="space-y-1">
+                <label className="text-[10px] text-white/60 uppercase font-black tracking-wider">Email</label>
                 <input
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full bg-white/20 border border-white/30 rounded-lg px-3 py-2 text-white placeholder-brand-200 focus:outline-none"
+                  className="w-full bg-black/20 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all text-sm"
+                  placeholder="email@exemplo.com"
                 />
               </div>
             </div>
           </div>
         ) : (
-          <div className="relative z-10 flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border-2 border-white/20">
-              <User size={32} className="text-white" />
+          <div className="relative z-10 flex items-center gap-5">
+            {/* Avatar with Glow and Badge */}
+            <div className="relative">
+              <div className="w-20 h-20 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-inner group overflow-hidden">
+                {formData.logo ? (
+                  <img src={formData.logo} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={40} className="text-white drop-shadow-md" />
+                )}
+              </div>
+              {userProfile.isPro && (
+                <div className="absolute -bottom-2 -right-2 bg-yellow-400 text-gray-900 rounded-lg p-1.5 shadow-lg border border-yellow-200 animate-bounce-subtle">
+                  <Award size={14} fill="currentColor" />
+                </div>
+              )}
             </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold">{userProfile.name}</h2>
-              <p className="text-brand-100 text-sm flex items-center gap-1">
-                <Briefcase size={12} /> {userProfile.profession}
-              </p>
-              <div className="flex gap-3 mt-1 text-xs text-brand-200">
-                <span className="flex items-center gap-1"><Phone size={10} /> {userProfile.phone}</span>
-                <span className="flex items-center gap-1"><Mail size={10} /> {userProfile.email}</span>
+
+            <div className="flex-1 space-y-1.5">
+              <div className="space-y-0.5">
+                <h2 className="text-2xl font-black tracking-tight leading-tight">{userProfile.name}</h2>
+                <div className="inline-flex items-center gap-1.5 bg-white/10 border border-white/10 px-2 py-0.5 rounded-md">
+                  <Briefcase size={12} className="text-brand-200" />
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-brand-50">{userProfile.profession}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1 pt-1">
+                <div className="flex items-center gap-2 group cursor-pointer">
+                  <div className="p-1 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                    <Phone size={12} className="text-white/70" />
+                  </div>
+                  <span className="text-sm font-medium text-white/90">{userProfile.phone}</span>
+                </div>
+                <div className="flex items-center gap-2 group cursor-pointer">
+                  <div className="p-1 rounded-md bg-white/5 group-hover:bg-white/10 transition-colors">
+                    <Mail size={12} className="text-white/70" />
+                  </div>
+                  <span className="text-sm font-medium text-white/90 truncate max-w-[180px]">{userProfile.email}</span>
+                </div>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Quick Actions Grid */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Quick Actions Grid - Refined */}
+      <div className="grid grid-cols-2 gap-4">
         <button
           onClick={onViewFinance}
-          className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors text-left"
+          className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all text-left flex flex-col gap-3 group"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-green-100 rounded-lg"><PieChart size={18} className="text-green-600" /></div>
+          <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <PieChart size={24} className="text-green-600" />
           </div>
-          <p className="font-bold text-gray-800">Financeiro</p>
-          <p className="text-xs text-gray-500">Relatórios e despesas</p>
+          <div>
+            <p className="font-black text-gray-800 tracking-tight">Financeiro</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Relatórios</p>
+          </div>
         </button>
 
         <button
           onClick={() => setShowBookingSettings(true)}
-          className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:bg-gray-50 transition-colors text-left"
+          className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all text-left flex flex-col gap-3 group"
         >
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-blue-100 rounded-lg"><Link2 size={18} className="text-blue-600" /></div>
+          <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Link2 size={24} className="text-blue-600" />
           </div>
-          <p className="font-bold text-gray-800">Agendamento</p>
-          <p className="text-xs text-gray-500">Link público</p>
+          <div>
+            <p className="font-black text-gray-800 tracking-tight">Agendamento</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Link Público</p>
+          </div>
         </button>
       </div>
 
-      {/* KPIs - Compact */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp size={16} className="text-brand-600" />
-          <span className="text-sm font-bold text-gray-700">Indicadores</span>
+      {/* Indicators Section - Modernized */}
+      <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-brand-50 rounded-lg">
+              <TrendingUp size={16} className="text-brand-600" />
+            </div>
+            <span className="text-sm font-black text-gray-800 uppercase tracking-tight">Desempenho</span>
+          </div>
+          <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md">ÚLTIMOS 30 DIAS</span>
         </div>
-        <div className="grid grid-cols-4 gap-2">
-          <div className="text-center p-2 bg-gray-50 rounded-xl">
-            <p className="text-lg font-bold text-gray-800">R$ {(stats.totalEarnings / 1000).toFixed(1)}k</p>
-            <p className="text-[10px] text-gray-500">Faturado</p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100/50 flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-gray-400 mb-1">
+              <DollarSign size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Faturamento</span>
+            </div>
+            <p className="text-xl font-black text-gray-900 leading-none">R$ {stats.totalEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</p>
           </div>
-          <div className="text-center p-2 bg-gray-50 rounded-xl">
-            <p className="text-lg font-bold text-gray-800">{stats.totalAppointments}</p>
-            <p className="text-[10px] text-gray-500">Serviços</p>
+
+          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100/50 flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-gray-400 mb-1">
+              <CalendarCheck size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Serviços</span>
+            </div>
+            <p className="text-xl font-black text-gray-900 leading-none">{stats.totalAppointments}</p>
           </div>
-          <div className="text-center p-2 bg-gray-50 rounded-xl">
-            <p className="text-lg font-bold text-gray-800">{stats.totalClients}</p>
-            <p className="text-[10px] text-gray-500">Clientes</p>
+
+          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100/50 flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-gray-400 mb-1">
+              <Users size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Clientes</span>
+            </div>
+            <p className="text-xl font-black text-gray-900 leading-none">{stats.totalClients}</p>
           </div>
-          <div className="text-center p-2 bg-gray-50 rounded-xl">
-            <p className="text-lg font-bold text-gray-800">{stats.completionRate}%</p>
-            <p className="text-[10px] text-gray-500">Conclusão</p>
+
+          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100/50 flex flex-col gap-1">
+            <div className="flex items-center gap-2 text-gray-400 mb-1">
+              <Award size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wider">Conclusão</span>
+            </div>
+            <p className="text-xl font-black text-green-600 leading-none">{stats.completionRate}%</p>
           </div>
         </div>
       </div>

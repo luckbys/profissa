@@ -163,7 +163,7 @@ function mapToDPS(data, isProduction) {
     // Only add CPF/CNPJ if valid length
     if (tomadorCpfCnpj.length === 14) {
         tomaObj.CNPJ = tomadorCpfCnpj;
-    } else if (tomadorCpfCnpj.length === 11) {
+    } else if (tomadorCpfCnpj.length === 11) {   // a
         tomaObj.CPF = tomadorCpfCnpj;
     }
 
@@ -196,7 +196,8 @@ function mapToDPS(data, isProduction) {
                     cLocPrestacao: codigoMunicipio
                 },
                 cServ: {
-                    cTribNac: config.codigo_servico || '01.03',
+                    cTribNac: config.codigo_servico || '14.01',
+                    cTribMun: config.codigo_servico_municipal || '1401',
                     xDescServ: invoice.description || 'Serviços Prestados'
                 }
             },

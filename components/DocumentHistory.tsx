@@ -97,8 +97,17 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                 showToast('Nota Autorizada! ✅', 'A NFS-e foi autorizada pela prefeitura.', 'success');
             } else if (result.status === 'processando') {
                 showToast('Ainda processando', 'A prefeitura ainda está processando a nota.', 'warning');
-            } else if (result.status === 'rejeitada' || result.status === 'erro') {
-                showToast('Nota Rejeitada', 'Verifique os detalhes na nota.', 'error');
+            } else if (result.status === 'rejeitada' || result.status === 'erro' || result.status === 'negada') {
+                // Show detailed error message from prefeitura
+                const errorMsg = result.mensagem || 'Motivo não informado pela prefeitura.';
+                const errorCode = result.codigo_erro ? `[${result.codigo_erro}] ` : '';
+                showToast(
+                    '❌ Nota Rejeitada pela Prefeitura',
+                    `${errorCode}${errorMsg}`,
+                    'error'
+                );
+            } else {
+                showToast('Status', `Status atual: ${result.status}`, 'info');
             }
             // Reload documents to show updated status
             loadDocuments();

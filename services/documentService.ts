@@ -68,6 +68,8 @@ export const checkNfseStatus = async (invoiceId: string): Promise<{
     numero?: string;
     link_url?: string;
     erro?: string;
+    mensagem?: string;
+    codigo_erro?: string;
 }> => {
     try {
         const response = await fetch('http://localhost:4000/check-status', {

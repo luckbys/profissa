@@ -107,6 +107,18 @@ CREATE TABLE IF NOT EXISTS achievements (
     UNIQUE(user_id, achievement_id)
 );
 
+-- Public Booking Links
+CREATE TABLE IF NOT EXISTS public_booking_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    slug TEXT UNIQUE NOT NULL,
+    config JSONB NOT NULL,
+    schedule JSONB NOT NULL,
+    is_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
@@ -115,8 +127,13 @@ ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE achievements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public_booking_configs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: Users can only access their own data
+
+-- Booking Configs policies
+CREATE POLICY "Public can view booking configs by slug" ON public_booking_configs FOR SELECT USING (true);
+CREATE POLICY "Users can manage own booking config" ON public_booking_configs FOR ALL USING (auth.uid() = user_id);
 
 -- Profiles policies
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = user_id);

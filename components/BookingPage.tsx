@@ -4,19 +4,55 @@ import { parseBookingLink, generateBookingMessage, sendBookingRequest } from '..
 import { getAvailableSlots, WorkSchedule, DEFAULT_WORK_SCHEDULE } from '../utils/scheduleUtils';
 
 interface BookingPageProps {
-    encodedData: string;
+    encodedData?: string;
+    slug?: string;
     onBack?: () => void;
 }
 
-const BookingPage: React.FC<BookingPageProps> = ({ encodedData, onBack }) => {
+const BookingPage: React.FC<BookingPageProps> = ({ encodedData, slug, onBack }) => {
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedTime, setSelectedTime] = useState('');
     const [selectedService, setSelectedService] = useState('');
     const [clientName, setClientName] = useState('');
     const [step, setStep] = useState<'service' | 'datetime' | 'confirm' | 'success'>('service');
+    const [isLoading, setIsLoading] = useState(false);
+    const [fetchedData, setFetchedData] = useState<{ config: any; schedule: any } | null>(null);
 
-    // Parse booking data from URL
-    const bookingData = useMemo(() => parseBookingLink(encodedData), [encodedData]);
+    // Fetch data if slug is provided
+    useEffect(() => {
+        const loadSlugData = async () => {
+            if (slug) {
+                setIsLoading(true);
+                try {
+                    const data = await import('../services/bookingService').then(m => m.fetchBookingBySlug(slug));
+                    if (data) {
+                        setFetchedData(data);
+                    }
+                } catch (error) {
+                    console.error('Error loading slug data:', error);
+                } finally {
+                    setIsLoading(false);
+                }
+            }
+        };
+        loadSlugData();
+    }, [slug]);
+
+    // Parse booking data from URL or use fetched data
+    const bookingData = useMemo(() => {
+        if (fetchedData) return fetchedData;
+        if (encodedData) return parseBookingLink(encodedData);
+        return null;
+    }, [encodedData, fetchedData]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+                <div className="w-12 h-12 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mb-4"></div>
+                <p className="text-gray-500 font-medium">Carregando página de agendamento...</p>
+            </div>
+        );
+    }
 
     if (!bookingData) {
         return (

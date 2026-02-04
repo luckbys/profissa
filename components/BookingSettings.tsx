@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link2, Copy, Check, Plus, X, Trash2, Settings, ExternalLink } from 'lucide-react';
-import { getBookingConfig, saveBookingConfig, generateBookingLink, BookingConfig } from '../services/bookingService';
+import { Link2, Copy, Check, Plus, X, Trash2, Settings, ExternalLink, Globe, Loader2 } from 'lucide-react';
+import { getBookingConfig, saveBookingConfig, generateBookingLink, publishBookingConfig, BookingConfig } from '../services/bookingService';
 import { UserProfile } from '../types';
 import SwipeableModal from './SwipeableModal';
+import { useAuth } from '../hooks/useAuth';
 
 interface BookingSettingsProps {
     userProfile: UserProfile;
@@ -11,18 +12,21 @@ interface BookingSettingsProps {
 }
 
 const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, onClose }) => {
+    const { user } = useAuth();
     const [config, setConfig] = useState<BookingConfig>({
         isEnabled: false,
         professionalName: userProfile.name || '',
         profession: userProfile.profession || '',
         phone: userProfile.phone || '',
         services: [],
-        welcomeMessage: ''
+        welcomeMessage: '',
+        slug: ''
     });
 
     const [newService, setNewService] = useState({ name: '', duration: 60, price: 0 });
     const [generatedLink, setGeneratedLink] = useState('');
     const [copied, setCopied] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
 
     useEffect(() => {
         const savedConfig = getBookingConfig();
@@ -30,7 +34,8 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
             ...savedConfig,
             professionalName: savedConfig.professionalName || userProfile.name || '',
             profession: savedConfig.profession || userProfile.profession || '',
-            phone: savedConfig.phone || userProfile.phone || ''
+            phone: savedConfig.phone || userProfile.phone || '',
+            slug: savedConfig.slug || userProfile.name?.toLowerCase().replace(/\s+/g, '-') || ''
         });
     }, [userProfile, isOpen]);
 
@@ -50,11 +55,19 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
         });
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         saveBookingConfig(config);
-        if (config.isEnabled && config.services.length > 0) {
-            const link = generateBookingLink();
-            setGeneratedLink(link);
+        
+        if (config.isEnabled && config.services.length > 0 && config.slug && user?.id) {
+            setIsPublishing(true);
+            try {
+                const link = await publishBookingConfig(user.id, config);
+                if (link) {
+                    setGeneratedLink(link);
+                }
+            } finally {
+                setIsPublishing(false);
+            }
         }
     };
 
@@ -65,7 +78,7 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         } catch {
-            // Fallback for older browsers
+            // Fallback
             const input = document.createElement('input');
             input.value = generatedLink;
             document.body.appendChild(input);
@@ -77,10 +90,32 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
         }
     };
 
-    const handleGenerateLink = () => {
-        saveBookingConfig({ ...config, isEnabled: true });
-        const link = generateBookingLink();
-        setGeneratedLink(link);
+    const handleGenerateLink = async () => {
+        if (!config.slug) {
+            alert('Por favor, defina um nome para o seu link (Slug).');
+            return;
+        }
+
+        const updatedConfig = { ...config, isEnabled: true };
+        setConfig(updatedConfig);
+        saveBookingConfig(updatedConfig);
+
+        if (user?.id) {
+            setIsPublishing(true);
+            try {
+                const link = await publishBookingConfig(user.id, updatedConfig);
+                if (link) {
+                    setGeneratedLink(link);
+                }
+            } catch (error) {
+                alert('Erro ao publicar link. O nome escolhido pode já estar em uso.');
+            } finally {
+                setIsPublishing(false);
+            }
+        } else {
+            const link = generateBookingLink(updatedConfig);
+            setGeneratedLink(link);
+        }
     };
 
     // if (!isOpen) return null; // Handled by SwipeableModal
@@ -109,6 +144,28 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                         <p className="text-sm text-blue-800">
                             Crie um link público para seus clientes agendarem horários. Eles escolhem data/hora e você recebe a solicitação via WhatsApp.
+                        </p>
+                    </div>
+
+                    {/* Personal Link / Slug */}
+                    <div className="space-y-3">
+                        <label className="text-xs font-bold text-gray-500 uppercase block">
+                            Seu Link Personalizado
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1 relative">
+                                <Globe size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="ex: seu-nome"
+                                    value={config.slug}
+                                    onChange={e => setConfig({ ...config, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') })}
+                                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                                />
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-gray-400">
+                            Seu link será: <strong>profissa.app/b/{config.slug || 'seu-nome'}</strong>
                         </p>
                     </div>
 
@@ -183,9 +240,11 @@ const BookingSettings: React.FC<BookingSettingsProps> = ({ userProfile, isOpen, 
                     {config.services.length > 0 && (
                         <button
                             onClick={handleGenerateLink}
-                            className="w-full py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2"
+                            disabled={isPublishing}
+                            className="w-full py-3 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            <Link2 size={18} /> Gerar Link de Agendamento
+                            {isPublishing ? <Loader2 size={18} className="animate-spin" /> : <Link2 size={18} />}
+                            {isPublishing ? 'Publicando...' : 'Gerar Link de Agendamento'}
                         </button>
                     )}
 

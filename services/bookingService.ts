@@ -2,6 +2,7 @@
 
 import { getWorkSchedule, WorkSchedule, DEFAULT_WORK_SCHEDULE, getAvailableSlots } from '../utils/scheduleUtils';
 import { Appointment } from '../types';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const BOOKING_CONFIG_KEY = 'gerente_bolso_booking_config';
 
@@ -12,6 +13,7 @@ export interface BookingConfig {
     phone: string; // WhatsApp number
     services: { name: string; duration: number; price: number }[];
     welcomeMessage?: string;
+    slug?: string;
 }
 
 export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
@@ -20,7 +22,8 @@ export const DEFAULT_BOOKING_CONFIG: BookingConfig = {
     profession: '',
     phone: '',
     services: [],
-    welcomeMessage: 'Olá! Gostaria de agendar um horário.'
+    welcomeMessage: 'Olá! Gostaria de agendar um horário.',
+    slug: ''
 };
 
 // Get booking config from localStorage
@@ -33,17 +36,73 @@ export const getBookingConfig = (): BookingConfig => {
     }
 };
 
-// Save booking config
+// Save booking config locally
 export const saveBookingConfig = (config: BookingConfig): void => {
     localStorage.setItem(BOOKING_CONFIG_KEY, JSON.stringify(config));
 };
 
-// Generate shareable booking link
-// Since this is client-side only, we encode the config in the URL
-export const generateBookingLink = (): string => {
-    const config = getBookingConfig();
-    const schedule = getWorkSchedule();
+// Save booking config to Supabase for friendly URL
+export const publishBookingConfig = async (userId: string, config: BookingConfig): Promise<string | null> => {
+    if (!isSupabaseConfigured() || !config.slug) return null;
 
+    const schedule = getWorkSchedule();
+    
+    try {
+        const { error } = await supabase
+            .from('public_booking_configs')
+            .upsert({
+                user_id: userId,
+                slug: config.slug.toLowerCase().trim(),
+                config: config,
+                schedule: schedule,
+                is_enabled: config.isEnabled,
+                updated_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+        
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/b/${config.slug.toLowerCase().trim()}`;
+    } catch (error) {
+        console.error('Error publishing booking config:', error);
+        return null;
+    }
+};
+
+// Fetch booking config by slug
+export const fetchBookingBySlug = async (slug: string): Promise<{ config: BookingConfig; schedule: WorkSchedule } | null> => {
+    if (!isSupabaseConfigured()) return null;
+
+    try {
+        const { data, error } = await supabase
+            .from('public_booking_configs')
+            .select('config, schedule')
+            .eq('slug', slug.toLowerCase().trim())
+            .eq('is_enabled', true)
+            .single();
+
+        if (error) throw error;
+        if (!data) return null;
+
+        return {
+            config: data.config,
+            schedule: data.schedule
+        };
+    } catch (error) {
+        console.error('Error fetching booking by slug:', error);
+        return null;
+    }
+};
+
+// Generate shareable booking link
+export const generateBookingLink = (config: BookingConfig): string => {
+    const baseUrl = window.location.origin;
+    if (config.slug) {
+        return `${baseUrl}/b/${config.slug.toLowerCase().trim()}`;
+    }
+    
+    // Fallback to legacy encoded link
+    const schedule = getWorkSchedule();
     const payload = {
         n: config.professionalName,
         p: config.profession,
@@ -56,7 +115,6 @@ export const generateBookingLink = (): string => {
     };
 
     const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
-    const baseUrl = window.location.origin + window.location.pathname;
     return `${baseUrl}?booking=${encoded}`;
 };
 

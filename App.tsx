@@ -49,11 +49,23 @@ const App: React.FC = () => {
 
   // Check for booking mode on mount
   const [bookingData, setBookingData] = useState<string | null>(null);
+  const [bookingSlug, setBookingSlug] = useState<string | null>(null);
+  
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const booking = params.get('booking');
     if (booking) {
       setBookingData(booking);
+      return;
+    }
+
+    // Check for friendly URL: /b/slug
+    const path = window.location.pathname;
+    if (path.startsWith('/b/')) {
+      const slug = path.split('/b/')[1];
+      if (slug) {
+        setBookingSlug(slug);
+      }
     }
   }, []);
 
@@ -209,13 +221,15 @@ const App: React.FC = () => {
   }
 
   // Booking Page (Public View)
-  if (bookingData) {
+  if (bookingData || bookingSlug) {
     return (
       <BookingPage
-        encodedData={bookingData}
+        encodedData={bookingData || undefined}
+        slug={bookingSlug || undefined}
         onBack={() => {
           setBookingData(null);
-          window.history.replaceState({}, '', window.location.pathname);
+          setBookingSlug(null);
+          window.history.replaceState({}, '', window.location.pathname === '/' ? '/' : '/');
         }}
       />
     );

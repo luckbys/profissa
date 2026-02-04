@@ -76,6 +76,7 @@ const App: React.FC = () => {
     isOnline,
     syncStatus,
     documents,
+    expenses,
     addClient,
     updateClient,
     removeClient,

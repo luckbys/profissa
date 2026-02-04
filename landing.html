@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profissa - O App que todo Autônomo precisa</title>
+    <meta name="description" content="Orçamentos, recibos, clientes e agenda — tudo em um só lugar. O app gratuito que todo profissional autônomo precisa.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- AOS Animate on Scroll -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        },
+                        amber: {
+                            500: '#f59e0b',
+                        }
+                    },
+                    animation: {
+                        'bounce-slow': 'bounce 3s infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .hero-gradient {
+            background: radial-gradient(circle at top right, #e0f2fe, transparent),
+                        radial-gradient(circle at bottom left, #f0f9ff, transparent);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 overflow-x-hidden">
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass px-4 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg">
+                    <i class="fa-solid fa-robot text-xl"></i>
+                </div>
+                <span class="text-2xl font-black tracking-tighter bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent">Profissa</span>
+            </div>
+            <div class="hidden md:flex items-center gap-8 text-sm font-bold text-gray-600 uppercase tracking-widest">
+                <a href="#features" class="hover:text-brand-600 transition-colors">Funcionalidades</a>
+                <a href="#pricing" class="hover:text-brand-600 transition-colors">Preços</a>
+                <a href="#faq" class="hover:text-brand-600 transition-colors">FAQ</a>
+            </div>
+            <a href="/login" class="bg-brand-600 text-white px-6 py-3 rounded-full font-black text-sm uppercase tracking-wider hover:bg-brand-700 hover:scale-105 transition-all shadow-xl shadow-brand-500/20">
+                Acessar App
+            </a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="pt-32 pb-20 px-4 hero-gradient relative overflow-hidden">
+        <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 items-center">
+            <div data-aos="fade-right" class="relative z-10 text-center lg:text-left">
+                <div class="inline-flex items-center gap-2 bg-brand-100 text-brand-700 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest mb-6">
+                    <i class="fa-solid fa-star"></i>
+                    <span>App #1 para Autônomos</span>
+                </div>
+                <h1 class="text-5xl md:text-7xl font-black text-gray-900 leading-[0.9] tracking-tighter mb-6">
+                    Gerencie seu negócio na <span class="text-brand-600">palma da mão</span>
+                </h1>
+                <p class="text-xl text-gray-500 mb-10 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                    Orçamentos, recibos, clientes e agenda — tudo em um só lugar. O app gratuito que todo profissional autônomo precisa para escalar.
+                </p>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                    <a href="/register" class="bg-brand-600 text-white px-10 py-5 rounded-2xl font-black text-lg hover:bg-brand-700 hover:scale-105 transition-all shadow-2xl shadow-brand-500/40 flex items-center justify-center gap-3">
+                        Começar Grátis Agora <i class="fa-solid fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="mt-8 flex items-center justify-center lg:justify-start gap-6 text-gray-400">
+                    <div class="flex flex-col">
+                        <span class="text-2xl font-black text-gray-800 tracking-tighter">4.9/5</span>
+                        <span class="text-[10px] font-bold uppercase">Avaliações</span>
+                    </div>
+                    <div class="w-px h-8 bg-gray-200"></div>
+                    <div class="flex flex-col">
+                        <span class="text-2xl font-black text-gray-800 tracking-tighter">+10k</span>
+                        <span class="text-[10px] font-bold uppercase">Usuários Ativos</span>
+                    </div>
+                    <div class="w-px h-8 bg-gray-200"></div>
+                    <div class="flex flex-col">
+                        <span class="text-2xl font-black text-gray-800 tracking-tighter">100%</span>
+                        <span class="text-[10px] font-bold uppercase">Seguro</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div data-aos="fade-left" class="relative">
+                <div class="absolute -top-20 -right-20 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl animate-pulse"></div>
+                <div class="relative bg-white rounded-[3rem] p-4 shadow-2xl border-8 border-gray-900 max-w-[320px] mx-auto animate-float">
+                    <img src="/pwa-512x512.png" alt="Profissa App" class="rounded-[2rem] w-full">
+                    <div class="absolute -right-10 top-20 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 animate-bounce-slow">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-green-100 rounded-lg text-green-600">
+                                <i class="fa-solid fa-dollar-sign"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-black text-gray-400 uppercase">Receita Hoje</p>
+                                <p class="text-lg font-black text-gray-800 leading-none">R$ 1.250,00</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section id="problem" class="py-24 px-4 bg-white">
+        <div class="max-w-7xl mx-auto text-center mb-16">
+            <h2 data-aos="fade-up" class="text-4xl md:text-5xl font-black tracking-tighter mb-4">Chega de bagunça</h2>
+            <p data-aos="fade-up" data-aos-delay="100" class="text-gray-500 max-w-2xl mx-auto text-lg">Pare de perder orçamentos em pedaços de papel ou planilhas complicadas. O Profissa simplifica o seu dia a dia.</p>
+        </div>
+        
+        <div class="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
+            <div data-aos="zoom-in" class="bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100">
+                <h3 class="text-2xl font-black text-rose-700 mb-6 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-xmark"></i> O Jeito Antigo
+                </h3>
+                <ul class="space-y-4 text-rose-800/70 font-medium">
+                    <li class="flex items-center gap-3">📝 Orçamentos escritos à mão que se perdem</li>
+                    <li class="flex items-center gap-3">📅 Agenda confusa em cadernos riscados</li>
+                    <li class="flex items-center gap-3">💸 Não saber quanto lucrou no fim do mês</li>
+                    <li class="flex items-center gap-3">📱 Demora para enviar orçamentos aos clientes</li>
+                </ul>
+            </div>
+            
+            <div data-aos="zoom-in" data-aos-delay="200" class="bg-emerald-50 p-8 rounded-[2.5rem] border border-emerald-100">
+                <h3 class="text-2xl font-black text-emerald-700 mb-6 flex items-center gap-3">
+                    <i class="fa-solid fa-circle-check"></i> O Jeito Profissa
+                </h3>
+                <ul class="space-y-4 text-emerald-800/70 font-medium">
+                    <li class="flex items-center gap-3">✨ Orçamentos digitais profissionais em segundos</li>
+                    <li class="flex items-center gap-3">📅 Calendário inteligente com sincronização</li>
+                    <li class="flex items-center gap-3">📊 Dashboard completo com faturamento e lucro</li>
+                    <li class="flex items-center gap-3">🚀 Envio instantâneo via WhatsApp e PDF</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 px-4 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 data-aos="fade-up" class="text-4xl md:text-5xl font-black tracking-tighter mb-4">Tudo em um só lugar</h2>
+                <p data-aos="fade-up" data-aos-delay="100" class="text-gray-500 max-w-2xl mx-auto text-lg">Ferramentas poderosas desenhadas especificamente para o prestador de serviço.</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div data-aos="fade-up" class="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group">
+                    <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-file-invoice-dollar text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 mb-3">Orçamentos Profissionais</h3>
+                    <p class="text-gray-500 leading-relaxed text-sm">Crie orçamentos lindos com sua marca em segundos. Escolha entre templates premium e impressione seus clientes.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div data-aos="fade-up" data-aos-delay="100" class="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group">
+                    <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-receipt text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 mb-3">Recibos Instantâneos</h3>
+                    <p class="text-gray-500 leading-relaxed text-sm">Gerou a venda? Envie o recibo na hora pelo WhatsApp. Praticidade para você e segurança para o seu cliente.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div data-aos="fade-up" data-aos-delay="200" class="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group">
+                    <div class="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center text-purple-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-users text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 mb-3">Gestão de Clientes</h3>
+                    <p class="text-gray-500 leading-relaxed text-sm">Tenha o histórico completo de cada cliente na palma da mão. Telefone, endereço e serviços realizados sempre à mão.</p>
+                </div>
+                <!-- Feature 4 -->
+                <div data-aos="fade-up" data-aos-delay="300" class="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group">
+                    <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-calendar-check text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 mb-3">Agenda Inteligente</h3>
+                    <p class="text-gray-500 leading-relaxed text-sm">Nunca mais perca um horário. Visualize seu dia e semana com clareza e gerencie seus compromissos sem estresse.</p>
+                </div>
+                <!-- Feature 5 -->
+                <div data-aos="fade-up" data-aos-delay="400" class="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group">
+                    <div class="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-chart-pie text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 mb-3">Dashboard de Lucro</h3>
+                    <p class="text-gray-500 leading-relaxed text-sm">Saiba exatamente quanto entra e quanto sai. Lucro real calculado automaticamente para você focar no que importa.</p>
+                </div>
+                <!-- Feature 6 -->
+                <div data-aos="fade-up" data-aos-delay="500" class="bg-white p-8 rounded-[2.5rem] shadow-sm hover:shadow-xl transition-all border border-gray-100 group">
+                    <div class="w-14 h-14 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-robot text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-gray-900 mb-3">Assistente com IA</h3>
+                    <p class="text-gray-500 leading-relaxed text-sm">Nossa IA te ajuda a precificar serviços e profissionalizar suas descrições. É como ter um sócio sênior no seu bolso.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-24 px-4 bg-white">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16">
+                <h2 data-aos="fade-up" class="text-4xl md:text-5xl font-black tracking-tighter mb-4">Escolha seu plano</h2>
+                <p data-aos="fade-up" data-aos-delay="100" class="text-gray-500 max-w-2xl mx-auto text-lg">Comece grátis e evolua para o Pro quando seu negócio decolar.</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <!-- Free Plan -->
+                <div data-aos="fade-right" class="bg-gray-50 p-8 rounded-[2.5rem] border border-gray-100 flex flex-col h-full">
+                    <h3 class="text-xl font-black text-gray-900 mb-2">Plano Grátis</h3>
+                    <div class="mb-6 flex items-baseline">
+                        <span class="text-4xl font-black tracking-tighter text-gray-900">R$ 0</span>
+                        <span class="text-gray-400 text-sm font-bold uppercase ml-2">/mês</span>
+                    </div>
+                    <ul class="space-y-4 mb-10 flex-1">
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-600"><i class="fa-solid fa-check text-green-500"></i> 10 documentos /mês</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-600"><i class="fa-solid fa-check text-green-500"></i> Gestão de Clientes</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-600"><i class="fa-solid fa-check text-green-500"></i> Agenda Completa</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-600"><i class="fa-solid fa-check text-green-500"></i> 5 usos de IA /mês</li>
+                    </ul>
+                    <a href="/register" class="w-full py-4 bg-gray-200 text-gray-800 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-gray-300 transition-all text-center">
+                        Começar Grátis
+                    </a>
+                </div>
+                
+                <!-- Pro Plan -->
+                <div data-aos="fade-left" class="bg-gray-900 p-8 rounded-[2.5rem] border-4 border-brand-500 flex flex-col h-full relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-brand-500 text-white px-6 py-2 rounded-bl-3xl text-[10px] font-black uppercase tracking-widest">Recomendado</div>
+                    <h3 class="text-xl font-black text-white mb-2">Plano Pro</h3>
+                    <div class="mb-6 flex items-baseline">
+                        <span class="text-4xl font-black tracking-tighter text-white">R$ 19,90</span>
+                        <span class="text-gray-500 text-sm font-bold uppercase ml-2">/mês</span>
+                    </div>
+                    <ul class="space-y-4 mb-10 flex-1">
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-300"><i class="fa-solid fa-circle-check text-brand-500"></i> Documentos ILIMITADOS</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-300"><i class="fa-solid fa-circle-check text-brand-500"></i> Backup na Nuvem</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-300"><i class="fa-solid fa-circle-check text-brand-500"></i> IA Sem Limites</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-300"><i class="fa-solid fa-circle-check text-brand-500"></i> Sua Marca nos PDFs</li>
+                        <li class="flex items-center gap-3 text-sm font-bold text-gray-300"><i class="fa-solid fa-circle-check text-brand-500"></i> Suporte Prioritário</li>
+                    </ul>
+                    <a href="/register?plan=pro" class="w-full py-4 bg-brand-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-brand-500 hover:scale-105 transition-all text-center shadow-xl shadow-brand-500/20">
+                        Assinar Agora Pro
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="py-24 px-4 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <h2 data-aos="fade-up" class="text-4xl md:text-5xl font-black tracking-tighter text-center mb-16">Quem usa, recomenda</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div data-aos="zoom-in" class="bg-white p-8 rounded-[2.5rem] shadow-sm">
+                    <div class="flex text-amber-500 mb-4 gap-1">
+                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
+                    <p class="text-gray-600 font-medium italic mb-6">"Antes eu perdia muito tempo fazendo orçamento no papel. Agora faço em 1 minuto e o cliente recebe na hora pelo WhatsApp!"</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-black">M</div>
+                        <div>
+                            <p class="font-black text-sm">Maria S.</p>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Manicure</p>
+                        </div>
+                    </div>
+                </div>
+                <div data-aos="zoom-in" data-aos-delay="100" class="bg-white p-8 rounded-[2.5rem] shadow-sm">
+                    <div class="flex text-amber-500 mb-4 gap-1">
+                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
+                    <p class="text-gray-600 font-medium italic mb-6">"O dashboard me ajuda a entender quanto estou faturando. Consigo planejar melhor o mês e saber meu lucro real."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-black">C</div>
+                        <div>
+                            <p class="font-black text-sm">Carlos R.</p>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Eletricista</p>
+                        </div>
+                    </div>
+                </div>
+                <div data-aos="zoom-in" data-aos-delay="200" class="bg-white p-8 rounded-[2.5rem] shadow-sm">
+                    <div class="flex text-amber-500 mb-4 gap-1">
+                        <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
+                    <p class="text-gray-600 font-medium italic mb-6">"Meus clientes elogiam o visual dos orçamentos. Passa muita credibilidade e ajuda a fechar mais serviços."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-black">A</div>
+                        <div>
+                            <p class="font-black text-sm">Ana P.</p>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase">Arquiteta</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="py-24 px-4 bg-brand-600 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div class="max-w-4xl mx-auto text-center relative z-10">
+            <h2 data-aos="fade-up" class="text-4xl md:text-6xl font-black text-white tracking-tighter mb-8 leading-none">
+                Pronto para profissionalizar seu negócio?
+            </h2>
+            <p data-aos="fade-up" data-aos-delay="100" class="text-brand-100 text-xl mb-12">Junte-se a milhares de profissionais que já usam o Profissa para gerenciar seus negócios de forma simples e profissional.</p>
+            <a data-aos="zoom-in" data-aos-delay="200" href="/register" class="inline-block bg-white text-brand-600 px-12 py-6 rounded-[2rem] font-black text-xl hover:scale-105 transition-all shadow-2xl">
+                Começar Agora Grátis
+            </a>
+            <p class="text-brand-200 text-xs font-bold uppercase mt-8 tracking-widest">Sem cartão de crédito • Leva 10 segundos</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-4 bg-gray-900 text-gray-500">
+        <div class="max-w-7xl mx-auto grid md:grid-cols-4 gap-12 mb-12">
+            <div class="col-span-2">
+                <div class="flex items-center gap-2 mb-6">
+                    <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white">
+                        <i class="fa-solid fa-robot text-sm"></i>
+                    </div>
+                    <span class="text-xl font-black tracking-tighter text-white">Profissa</span>
+                </div>
+                <p class="max-w-xs text-sm leading-relaxed">O app que todo profissional autônomo precisa para gerenciar clientes, orçamentos, recibos e agenda em um só lugar.</p>
+            </div>
+            <div>
+                <h4 class="text-white font-black text-xs uppercase tracking-widest mb-6">Links Rápidos</h4>
+                <ul class="space-y-4 text-sm font-bold">
+                    <li><a href="#features" class="hover:text-brand-500 transition-colors">Funcionalidades</a></li>
+                    <li><a href="#pricing" class="hover:text-brand-500 transition-colors">Preços</a></li>
+                    <li><a href="#problem" class="hover:text-brand-500 transition-colors">Vantagens</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="text-white font-black text-xs uppercase tracking-widest mb-6">Suporte</h4>
+                <ul class="space-y-4 text-sm font-bold">
+                    <li><a href="#" class="hover:text-brand-500 transition-colors">Ajuda</a></li>
+                    <li><a href="#" class="hover:text-brand-500 transition-colors">Termos de Uso</a></li>
+                    <li><a href="#" class="hover:text-brand-500 transition-colors">Privacidade</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="max-w-7xl mx-auto pt-8 border-t border-gray-800 text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-xs font-bold uppercase tracking-widest">© 2026 Profissa. Todos os direitos reservados.</p>
+            <div class="flex gap-6 text-xl">
+                <a href="#" class="hover:text-white transition-colors"><i class="fa-brands fa-instagram"></i></a>
+                <a href="#" class="hover:text-white transition-colors"><i class="fa-brands fa-whatsapp"></i></a>
+                <a href="#" class="hover:text-white transition-colors"><i class="fa-brands fa-linkedin"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- AOS JS -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({
+            duration: 800,
+            once: true,
+            offset: 100
+        });
+    </script>
+</body>
+</html>

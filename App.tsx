@@ -223,7 +223,15 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard appointments={appointments} clients={clients} documentsCount={documents.length} userProfile={userProfile} />;
+        return (
+          <Dashboard
+            appointments={appointments}
+            clients={clients}
+            documentsCount={documents.length}
+            userProfile={userProfile}
+            expenses={expenses}
+          />
+        );
       case 'clients':
         return (
           <Clients

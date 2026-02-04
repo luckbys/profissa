@@ -1,26 +1,53 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Appointment, Client, UserProfile } from '../types';
-import { TrendingUp, Users, Calendar, Wallet, Sparkles, RefreshCw, Loader2 } from 'lucide-react';
+import { TrendingUp, Users, Calendar, Wallet, Sparkles, RefreshCw, Loader2, ArrowUpCircle, ArrowDownCircle, Target } from 'lucide-react';
 import GoalsWidget from './GoalsWidget';
 import { askBusinessCoach, BusinessContext } from '../services/geminiService';
 import { getDocumentStats } from '../services/documentService';
 import { getMonthlyCashFlow } from '../services/expenseService';
+import { Expense } from '../types';
 
 interface DashboardProps {
   appointments: Appointment[];
   clients: Client[];
   documentsCount: number;
   userProfile?: UserProfile;
+  expenses?: Expense[];
 }
 
 const WEEKDAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const Dashboard: React.FC<DashboardProps> = ({ appointments, clients, documentsCount, userProfile }) => {
+const Dashboard: React.FC<DashboardProps> = ({ appointments, clients, documentsCount, userProfile, expenses = [] }) => {
   const [dailyTip, setDailyTip] = useState<string>('');
   const [isLoadingTip, setIsLoadingTip] = useState(false);
   const [lastTipDate, setLastTipDate] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Calculate real monthly revenue, expenses and profit
+  const monthlyStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const revenue = appointments
+      .filter(a => {
+        const d = new Date(a.date);
+        return a.status === 'completed' && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((acc, curr) => acc + curr.price, 0);
+
+    const monthlyExpenses = expenses
+      .filter(e => {
+        const d = new Date(e.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((acc, curr) => acc + curr.amount, 0);
+
+    const profit = revenue - monthlyExpenses;
+    
+    return { revenue, expenses: monthlyExpenses, profit };
+  }, [appointments, expenses]);
 
   // Calculate real weekly data from completed appointments
   const weeklyData = useMemo(() => {
@@ -157,20 +184,65 @@ const Dashboard: React.FC<DashboardProps> = ({ appointments, clients, documentsC
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-start">
-          <div className="p-2 bg-green-100 rounded-lg mb-2">
-            <Wallet className="w-5 h-5 text-green-600" />
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-start relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity">
+            <ArrowUpCircle className="w-12 h-12 text-green-600" />
           </div>
-          <span className="text-xs text-gray-500">Receita (Mês)</span>
-          <span className="text-xl font-bold text-gray-800">R$ {totalIncome.toFixed(2)}</span>
+          <div className="p-2 bg-green-100 rounded-lg mb-2 text-green-600">
+            <Wallet size={18} />
+          </div>
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Receita (Mês)</span>
+          <span className="text-xl font-black text-gray-800 tracking-tight">R$ {monthlyStats.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-start">
-          <div className="p-2 bg-blue-100 rounded-lg mb-2">
-            <Calendar className="w-5 h-5 text-blue-600" />
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-start relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Target className="w-12 h-12 text-blue-600" />
           </div>
-          <span className="text-xs text-gray-500">Agendados</span>
-          <span className="text-xl font-bold text-gray-800">{pendingCount}</span>
+          <div className="p-2 bg-blue-100 rounded-lg mb-2 text-blue-600">
+            <Calendar size={18} />
+          </div>
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Agendados</span>
+          <span className="text-xl font-black text-gray-800 tracking-tight">{pendingCount}</span>
+        </div>
+      </div>
+
+      {/* Main Profit Card */}
+      <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden group hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className={`p-1.5 rounded-lg ${monthlyStats.profit >= 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+              {monthlyStats.profit >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+            </div>
+            <span className="text-sm font-black text-gray-800 uppercase tracking-tight">Lucro Real (Mês)</span>
+          </div>
+          <span className="text-[10px] font-black text-gray-400 bg-gray-50 px-2 py-1 rounded-md uppercase">Saldo do Período</span>
+        </div>
+
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className={`text-3xl font-black tracking-tighter leading-none ${monthlyStats.profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              R$ {monthlyStats.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </p>
+            <p className="text-[11px] text-gray-400 font-bold mt-2 flex items-center gap-1">
+              {monthlyStats.profit >= 0 ? 'Resultado positivo' : 'Atenção ao fluxo'} 
+              <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+              Foco na meta
+            </p>
+          </div>
+          
+          <div className="flex-1 max-w-[120px] space-y-2">
+            <div className="flex justify-between items-center text-[9px] font-bold uppercase text-gray-400 tracking-widest">
+              <span>Despesas</span>
+              <span className="text-rose-500">R$ {monthlyStats.expenses.toFixed(0)}</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-rose-500 transition-all duration-1000" 
+                style={{ width: `${Math.min((monthlyStats.expenses / (monthlyStats.revenue || 1)) * 100, 100)}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

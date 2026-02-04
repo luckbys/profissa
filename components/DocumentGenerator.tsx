@@ -22,6 +22,7 @@ interface DocumentGeneratorProps {
     initialType?: 'quote' | 'receipt' | 'nfse';
     initialClientId?: string;
     onNavigateToHistory?: () => void;
+    onSaveDocument?: (doc: SavedDocument) => void;
     onBack?: () => void; // Optional back button if needed
 }
 
@@ -30,7 +31,8 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     userProfile,
     initialType = 'quote',
     initialClientId = '',
-    onNavigateToHistory
+    onNavigateToHistory,
+    onSaveDocument
 }) => {
     const [selectedClientId, setSelectedClientId] = useState(initialClientId);
     const [type, setType] = useState<'quote' | 'receipt' | 'nfse'>(initialType);
@@ -88,7 +90,13 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 documentNumber: generateDocumentNumber(type),
                 status: type === 'receipt' ? 'paid' : 'pending'
             };
-            saveDocument(docToSave);
+            
+            if (onSaveDocument) {
+                onSaveDocument(docToSave);
+            } else {
+                saveDocument(docToSave);
+            }
+            
             setShowPreview(true);
         } else {
             setShowNoCreditsWarning(true);

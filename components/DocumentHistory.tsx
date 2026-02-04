@@ -22,13 +22,15 @@ import {
 } from 'lucide-react';
 
 interface DocumentHistoryProps {
+    documents?: SavedDocument[];
+    onDeleteDocument?: (id: string) => void;
     onDuplicate?: (doc: SavedDocument) => void;
 }
 
-const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
+const DocumentHistory: React.FC<DocumentHistoryProps> = ({ documents: propDocuments, onDeleteDocument, onDuplicate }) => {
     const { showToast } = useToast();
     const { user } = useAuth();
-    const [documents, setDocuments] = useState<SavedDocument[]>([]);
+    const [localDocuments, setLocalDocuments] = useState<SavedDocument[]>([]);
     const [filters, setFilters] = useState<DocumentFilters>({ type: 'all' });
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDoc, setSelectedDoc] = useState<SavedDocument | null>(null);
@@ -36,8 +38,10 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
 
     // Load documents
     useEffect(() => {
-        loadDocuments();
-    }, [filters, user?.id]);
+        if (!propDocuments) {
+            loadDocuments();
+        }
+    }, [filters, user?.id, propDocuments]);
 
     const loadDocuments = async () => {
         const allDocs = await fetchDocuments(user?.id);
@@ -45,18 +49,29 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
             ...filters,
             searchQuery: searchQuery || undefined
         });
-        setDocuments(filtered);
+        setLocalDocuments(filtered);
     };
 
+    const documents = propDocuments ? filterDocuments(propDocuments, {
+        ...filters,
+        searchQuery: searchQuery || undefined
+    }) : localDocuments;
+
     useEffect(() => {
-        const timer = setTimeout(loadDocuments, 300);
-        return () => clearTimeout(timer);
-    }, [searchQuery, user?.id]);
+        if (!propDocuments) {
+            const timer = setTimeout(loadDocuments, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [searchQuery, user?.id, propDocuments]);
 
     const handleDelete = (id: string) => {
         if (confirm('Excluir este documento?')) {
-            deleteDocument(id);
-            loadDocuments();
+            if (onDeleteDocument) {
+                onDeleteDocument(id);
+            } else {
+                deleteDocument(id);
+                loadDocuments();
+            }
             showToast('Documento excluído', 'O documento foi removido com sucesso.', 'success');
         }
         setActionMenuId(null);
@@ -65,7 +80,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
     const handleDuplicate = (doc: SavedDocument) => {
         const newDoc = duplicateDocument(doc);
         saveDocument(newDoc);
-        loadDocuments();
+        if (!propDocuments) loadDocuments();
         showToast('Documento duplicado', 'Um novo rascunho foi criado.', 'success');
         if (onDuplicate) {
             onDuplicate(newDoc);
@@ -75,7 +90,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
 
     const handleStatusChange = (id: string, newStatus: 'pending' | 'paid' | 'overdue') => {
         toggleDocumentStatus(id, newStatus);
-        loadDocuments();
+        if (!propDocuments) loadDocuments();
         showToast('Status atualizado', `Documento marcado como ${getStatusLabel(newStatus)}.`, 'success');
         setActionMenuId(null);
     };
@@ -110,7 +125,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ onDuplicate }) => {
                 showToast('Status', `Status atual: ${result.status}`, 'info');
             }
             // Reload documents to show updated status
-            loadDocuments();
+            if (!propDocuments) loadDocuments();
         } else {
             showToast('Erro', result.erro || 'Não foi possível verificar o status.', 'error');
         }

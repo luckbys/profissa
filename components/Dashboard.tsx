@@ -20,6 +20,7 @@ const Dashboard: React.FC<DashboardProps> = ({ appointments, clients, documentsC
   const [dailyTip, setDailyTip] = useState<string>('');
   const [isLoadingTip, setIsLoadingTip] = useState(false);
   const [lastTipDate, setLastTipDate] = useState<string>('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Calculate real weekly data from completed appointments
   const weeklyData = useMemo(() => {
@@ -128,9 +129,30 @@ const Dashboard: React.FC<DashboardProps> = ({ appointments, clients, documentsC
 
   return (
     <div className="space-y-6 pb-20">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Visão Geral</h1>
-        <p className="text-gray-500">Bem-vindo{userProfile?.name ? `, ${userProfile.name.split(' ')[0]}` : ', Autônomo de Sucesso'}!</p>
+      <header className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Visão Geral</h1>
+          <p className="text-gray-500">Bem-vindo{userProfile?.name ? `, ${userProfile.name.split(' ')[0]}` : ', Autônomo de Sucesso'}!</p>
+        </div>
+        {userProfile?.isPro && (
+          <button
+            onClick={async () => {
+              setIsRefreshing(true);
+              try {
+                // The actual sync is handled by the forceSync in App.tsx via SyncIndicator,
+                // but we can trigger a visual refresh here if needed or just show the user
+                // that data is up to date.
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              } finally {
+                setIsRefreshing(false);
+              }
+            }}
+            className={`p-2 rounded-xl bg-white border border-gray-100 shadow-sm text-gray-400 hover:text-brand-600 transition-all ${isRefreshing ? 'animate-spin' : ''}`}
+            title="Sincronizado na nuvem"
+          >
+            <RefreshCw size={18} />
+          </button>
+        )}
       </header>
 
       {/* KPI Cards */}

@@ -524,6 +524,98 @@ export const deleteExpenseFromSupabase = async (expenseId: string): Promise<void
     }
 };
 
+// ============= DOCUMENTS SYNC =============
+
+import { SavedDocument } from '../types/documents';
+
+export const syncDocuments = async (userId: string): Promise<SavedDocument[]> => {
+    if (!isSupabaseConfigured()) {
+        const localData = localStorage.getItem(STORAGE_KEYS.documents);
+        return localData ? JSON.parse(localData) : [];
+    }
+
+    try {
+        const { data: remoteDocs, error } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (error) throw error;
+
+        const documents: SavedDocument[] = (remoteDocs || []).map(d => ({
+            id: d.id,
+            type: d.type as 'quote' | 'receipt',
+            clientId: d.client_id || '',
+            clientName: d.client_name,
+            clientPhone: d.client_phone || '',
+            documentNumber: d.number,
+            createdAt: d.created_at,
+            total: Number(d.total),
+            items: d.items || [],
+            status: d.status as 'pending' | 'paid' | 'overdue',
+            note: d.notes || ''
+        }));
+
+        localStorage.setItem(STORAGE_KEYS.documents, JSON.stringify(documents));
+        return documents;
+    } catch (error) {
+        console.error('Error syncing documents:', error);
+        const localData = localStorage.getItem(STORAGE_KEYS.documents);
+        return localData ? JSON.parse(localData) : [];
+    }
+};
+
+export const saveDocumentToSupabase = async (userId: string, doc: SavedDocument): Promise<void> => {
+    // Ensure we have a valid UUID for DB
+    let docId = doc.id;
+    if (!isValidUUID(docId)) {
+        docId = crypto.randomUUID();
+    }
+
+    if (!isSupabaseConfigured()) {
+        addToSyncQueue('documents', 'insert', { userId, document: { ...doc, id: docId } });
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('documents').upsert({
+            id: docId,
+            user_id: userId,
+            type: doc.type,
+            number: doc.documentNumber,
+            client_name: doc.clientName,
+            client_phone: doc.clientPhone,
+            items: doc.items,
+            total: doc.total,
+            status: doc.status === 'paid' ? 'paid' : 'pending',
+            notes: doc.note || null,
+            created_at: doc.createdAt
+        });
+
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error saving document to Supabase:', error);
+        addToSyncQueue('documents', 'insert', { userId, document: { ...doc, id: docId } });
+    }
+};
+
+export const deleteDocumentFromSupabase = async (docId: string): Promise<void> => {
+    if (!isValidUUID(docId)) return;
+
+    if (!isSupabaseConfigured()) {
+        addToSyncQueue('documents', 'delete', { docId });
+        return;
+    }
+
+    try {
+        const { error } = await supabase.from('documents').delete().eq('id', docId);
+        if (error) throw error;
+    } catch (error) {
+        console.error('Error deleting document:', error);
+        addToSyncQueue('documents', 'delete', { docId });
+    }
+};
+
 // ============= FULL SYNC =============
 
 export const performFullSync = async (): Promise<SyncStatus> => {
@@ -549,7 +641,8 @@ export const performFullSync = async (): Promise<SyncStatus> => {
             syncAppointments(user.id),
             syncProfile(user.id),
             syncExpenses(user.id),
-            syncTemplates(user.id)
+            syncTemplates(user.id),
+            syncDocuments(user.id)
         ]);
 
         const lastSyncAt = new Date().toISOString();
@@ -609,6 +702,13 @@ const processSyncQueue = async (userId: string): Promise<void> => {
                         await saveTemplateToSupabase(userId, item.data.template);
                     }
                     break;
+                case 'documents':
+                    if (item.operation === 'delete') {
+                        await deleteDocumentFromSupabase(item.data.docId);
+                    } else {
+                        await saveDocumentToSupabase(userId, item.data.document);
+                    }
+                    break;
             }
             removeFromSyncQueue(item.id);
         } catch (error) {
@@ -642,6 +742,7 @@ export const setupRealtimeSync = (userId: string, onDataChange: () => void) => {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses', filter: `user_id=eq.${userId}` }, onDataChange)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `user_id=eq.${userId}` }, onDataChange)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'service_templates', filter: `user_id=eq.${userId}` }, onDataChange)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'documents', filter: `user_id=eq.${userId}` }, onDataChange)
         .subscribe();
 
     return channel;

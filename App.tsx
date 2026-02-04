@@ -75,12 +75,15 @@ const App: React.FC = () => {
     isLoading,
     isOnline,
     syncStatus,
+    documents,
     addClient,
     updateClient,
     removeClient,
     addAppointment,
     toggleAppointmentStatus,
     setUserProfile,
+    addDocument,
+    removeDocument,
     forceSync
   } = useSupabaseData();
 
@@ -220,7 +223,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard':
-        return <Dashboard appointments={appointments} clients={clients} documentsCount={getDocuments().length} userProfile={userProfile} />;
+        return <Dashboard appointments={appointments} clients={clients} documentsCount={documents.length} userProfile={userProfile} />;
       case 'clients':
         return (
           <Clients
@@ -261,6 +264,7 @@ const App: React.FC = () => {
             initialType={financeInitialType}
             initialClientId={financeInitialClientId}
             onNavigateToHistory={() => setCurrentView('history')}
+            onSaveDocument={addDocument}
           />
         );
       case 'profile':
@@ -277,9 +281,14 @@ const App: React.FC = () => {
       case 'coach':
         return <AICoach />;
       case 'history':
-        return <DocumentHistory />;
+        return (
+          <DocumentHistory
+            documents={documents}
+            onDeleteDocument={removeDocument}
+          />
+        );
       default:
-        return <Dashboard appointments={appointments} clients={clients} documentsCount={getDocuments().length} />;
+        return <Dashboard appointments={appointments} clients={clients} documentsCount={documents.length} />;
     }
   };
 

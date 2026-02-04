@@ -6,6 +6,7 @@ import {
     syncAppointments,
     syncProfile,
     syncExpenses,
+    syncDocuments,
     saveClientToSupabase,
     deleteClientFromSupabase,
     saveAppointmentToSupabase,
@@ -13,6 +14,8 @@ import {
     saveProfileToSupabase,
     saveExpenseToSupabase,
     deleteExpenseFromSupabase,
+    saveDocumentToSupabase,
+    deleteDocumentFromSupabase,
     performFullSync,
     getSyncStatus,
     setupRealtimeSync,
@@ -21,13 +24,15 @@ import {
     Expense
 } from '../services/syncService';
 import { isSupabaseConfigured } from '../services/supabaseClient';
+import { SavedDocument } from '../types/documents';
 
 // Storage keys for fallback
 const STORAGE_KEYS = {
     clients: 'gerente_bolso_clients',
     appointments: 'gerente_bolso_appointments',
     profile: 'gerente_bolso_profile',
-    expenses: 'gerente_bolso_expenses'
+    expenses: 'gerente_bolso_expenses',
+    documents: 'gerente_bolso_documents'
 };
 
 // Default profile
@@ -48,6 +53,7 @@ export const useSupabaseData = () => {
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [userProfile, setUserProfileState] = useState<UserProfile>(DEFAULT_PROFILE);
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [documents, setDocuments] = useState<SavedDocument[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>(getSyncStatus());
@@ -81,28 +87,32 @@ export const useSupabaseData = () => {
             try {
                 if (isConfigured && user?.id) {
                     // Load from Supabase
-                    const [clientsData, appointmentsData, profileData, expensesData] = await Promise.all([
+                    const [clientsData, appointmentsData, profileData, expensesData, documentsData] = await Promise.all([
                         syncClients(user.id),
                         syncAppointments(user.id),
                         syncProfile(user.id),
-                        syncExpenses(user.id)
+                        syncExpenses(user.id),
+                        syncDocuments(user.id)
                     ]);
 
                     setClients(clientsData);
                     setAppointments(appointmentsData);
                     setUserProfileState(profileData || DEFAULT_PROFILE);
                     setExpenses(expensesData);
+                    setDocuments(documentsData);
                 } else {
                     // Load from localStorage (offline mode)
                     const localClients = localStorage.getItem(STORAGE_KEYS.clients);
                     const localAppointments = localStorage.getItem(STORAGE_KEYS.appointments);
                     const localProfile = localStorage.getItem(STORAGE_KEYS.profile);
                     const localExpenses = localStorage.getItem(STORAGE_KEYS.expenses);
+                    const localDocuments = localStorage.getItem(STORAGE_KEYS.documents);
 
                     setClients(localClients ? JSON.parse(localClients) : []);
                     setAppointments(localAppointments ? JSON.parse(localAppointments) : []);
                     setUserProfileState(localProfile ? JSON.parse(localProfile) : DEFAULT_PROFILE);
                     setExpenses(localExpenses ? JSON.parse(localExpenses) : []);
+                    setDocuments(localDocuments ? JSON.parse(localDocuments) : []);
                 }
             } catch (error) {
                 console.error('Error loading data:', error);
@@ -129,12 +139,14 @@ export const useSupabaseData = () => {
         if (isConfigured && user?.id && isOnline) {
             const handleDataChange = async () => {
                 // Refetch data on remote changes
-                const [clientsData, appointmentsData] = await Promise.all([
+                const [clientsData, appointmentsData, documentsData] = await Promise.all([
                     syncClients(user.id),
-                    syncAppointments(user.id)
+                    syncAppointments(user.id),
+                    syncDocuments(user.id)
                 ]);
                 setClients(clientsData);
                 setAppointments(appointmentsData);
+                setDocuments(documentsData);
             };
 
             realtimeChannel.current = setupRealtimeSync(user.id, handleDataChange);
@@ -256,6 +268,35 @@ export const useSupabaseData = () => {
         await deleteExpenseFromSupabase(expenseId);
     }, [expenses]);
 
+    // ============= DOCUMENT OPERATIONS =============
+
+    const addDocument = useCallback(async (doc: SavedDocument) => {
+        setDocuments(prev => [doc, ...prev]);
+        localStorage.setItem(STORAGE_KEYS.documents, JSON.stringify([doc, ...documents]));
+
+        if (user?.id) {
+            await saveDocumentToSupabase(user.id, doc);
+        }
+    }, [documents, user?.id]);
+
+    const updateDocument = useCallback(async (updatedDoc: SavedDocument) => {
+        const newDocs = documents.map(d => d.id === updatedDoc.id ? updatedDoc : d);
+        setDocuments(newDocs);
+        localStorage.setItem(STORAGE_KEYS.documents, JSON.stringify(newDocs));
+
+        if (user?.id) {
+            await saveDocumentToSupabase(user.id, updatedDoc);
+        }
+    }, [documents, user?.id]);
+
+    const removeDocument = useCallback(async (docId: string) => {
+        const newDocs = documents.filter(d => d.id !== docId);
+        setDocuments(newDocs);
+        localStorage.setItem(STORAGE_KEYS.documents, JSON.stringify(newDocs));
+
+        await deleteDocumentFromSupabase(docId);
+    }, [documents]);
+
     // ============= SYNC OPERATIONS =============
 
     const forceSync = useCallback(async () => {
@@ -266,17 +307,19 @@ export const useSupabaseData = () => {
         setSyncStatus(status);
 
         // Reload data
-        const [clientsData, appointmentsData, profileData, expensesData] = await Promise.all([
+        const [clientsData, appointmentsData, profileData, expensesData, documentsData] = await Promise.all([
             syncClients(user.id),
             syncAppointments(user.id),
             syncProfile(user.id),
-            syncExpenses(user.id)
+            syncExpenses(user.id),
+            syncDocuments(user.id)
         ]);
 
         setClients(clientsData);
         setAppointments(appointmentsData);
         setUserProfileState(profileData || DEFAULT_PROFILE);
         setExpenses(expensesData);
+        setDocuments(documentsData);
     }, [user?.id]);
 
     return {
@@ -285,6 +328,7 @@ export const useSupabaseData = () => {
         appointments,
         userProfile,
         expenses,
+        documents,
 
         // State
         isLoading,
@@ -308,6 +352,11 @@ export const useSupabaseData = () => {
         // Expense operations
         addExpense,
         removeExpense,
+
+        // Document operations
+        addDocument,
+        updateDocument,
+        removeDocument,
 
         // Sync operations
         forceSync

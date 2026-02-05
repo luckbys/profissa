@@ -146,7 +146,7 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
             <div
                 id="invoice-preview"
                 className="bg-white p-10 font-sans"
-                style={{ width: '210mm', minHeight: '297mm', maxWidth: '100%', margin: '0 auto' }}
+                style={{ width: '210mm', minHeight: '295mm', maxWidth: '100%', margin: '0 auto' }}
             >
                 {/* Minimal Header */}
                 <div className="border-b-4 border-gray-900 pb-8 mb-8">
@@ -233,7 +233,7 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
         <div
             id="invoice-preview"
             className="bg-white font-sans overflow-hidden"
-            style={{ width: '210mm', minHeight: '297mm', maxWidth: '100%', margin: '0 auto' }}
+            style={{ width: '210mm', minHeight: '295mm', maxWidth: '100%', margin: '0 auto' }}
         >
             {/* Styled Header */}
             <div className={`${style.headerBg} ${style.headerText} p-8`}>

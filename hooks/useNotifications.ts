@@ -8,6 +8,7 @@ import {
     saveNotificationSettings,
     getStoredNotifications,
     markNotificationAsRead,
+    markAllNotificationsAsRead,
     clearAllNotifications,
     sendAppointmentReminder,
     sendLowCreditsAlert,
@@ -23,6 +24,7 @@ interface UseNotificationsReturn {
     requestPermission: () => Promise<boolean>;
     updateSettings: (settings: Partial<NotificationSettings>) => void;
     markAsRead: (id: string) => void;
+    markAllAsRead: () => void;
     clearAll: () => void;
     sendAppointmentReminder: (clientName: string, service: string, time: string) => void;
     sendLowCreditsAlert: (remaining: number) => void;
@@ -71,6 +73,11 @@ export const useNotifications = (): UseNotificationsReturn => {
         ));
     }, []);
 
+    const markAllAsRead = useCallback(() => {
+        markAllNotificationsAsRead();
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }, []);
+
     const clearAll = useCallback(() => {
         clearAllNotifications();
         setNotifications([]);
@@ -114,6 +121,7 @@ export const useNotifications = (): UseNotificationsReturn => {
         requestPermission,
         updateSettings,
         markAsRead,
+        markAllAsRead,
         clearAll,
         sendAppointmentReminder: handleSendAppointmentReminder,
         sendLowCreditsAlert: handleSendLowCreditsAlert,

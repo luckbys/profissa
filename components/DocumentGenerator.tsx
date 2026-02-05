@@ -146,7 +146,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         if (!element) return;
         setIsDownloading(true);
         const filename = `${type === 'quote' ? 'orcamento' : 'recibo'}_${selectedClient?.name.replace(/\s+/g, '_')}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
-        const opt = { margin: [10, 10, 10, 10], filename: filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, letterRendering: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+        const opt = { margin: 0, filename: filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, letterRendering: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } };
 
         try {
             // @ts-ignore

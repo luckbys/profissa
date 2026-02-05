@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppNotification, NotificationSettings } from '../types/notifications';
 import {
     Bell, BellOff, X, Check, Calendar, Coins, CheckCircle,
-    Settings, ChevronRight, Trash2, Clock
+    Settings, Trash2, Clock
 } from 'lucide-react';
 
 interface NotificationCenterProps {
@@ -14,6 +14,7 @@ interface NotificationCenterProps {
     onRequestPermission: () => Promise<boolean>;
     onUpdateSettings: (settings: Partial<NotificationSettings>) => void;
     onMarkAsRead: (id: string) => void;
+    onMarkAllAsRead: () => void;
     onClearAll: () => void;
 }
 
@@ -26,10 +27,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     onRequestPermission,
     onUpdateSettings,
     onMarkAsRead,
+    onMarkAllAsRead,
     onClearAll
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
+    const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
     const getNotificationIcon = (type: AppNotification['type']) => {
         switch (type) {
@@ -58,6 +61,10 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
         return `${diffDays}d`;
     };
 
+    const filteredNotifications = filter === 'unread'
+        ? notifications.filter(n => !n.read)
+        : notifications;
+
     return (
         <>
             {/* Bell Button */}
@@ -80,8 +87,23 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
                         {/* Header */}
                         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                            <h2 className="font-bold text-gray-800 text-lg">Notificações</h2>
                             <div className="flex items-center gap-2">
+                                <h2 className="font-bold text-gray-800 text-lg">Notificações</h2>
+                                {unreadCount > 0 && (
+                                    <span className="text-xs bg-red-100 text-red-600 font-semibold px-2 py-0.5 rounded-full">
+                                        {unreadCount} novas
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {unreadCount > 0 && (
+                                    <button
+                                        onClick={onMarkAllAsRead}
+                                        className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                                    >
+                                        <Check size={18} />
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setShowSettings(!showSettings)}
                                     className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-brand-100 text-brand-600' : 'text-gray-500 hover:bg-gray-100'
@@ -145,6 +167,20 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                                                         <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
                                                     </label>
                                                 </div>
+                                                {settings.appointmentReminders && (
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-sm text-gray-600 flex items-center gap-2">
+                                                            <Clock className="w-4 h-4 text-gray-400" />
+                                                            Horário do lembrete
+                                                        </span>
+                                                        <input
+                                                            type="time"
+                                                            value={settings.reminderTime}
+                                                            onChange={(e) => onUpdateSettings({ reminderTime: e.target.value })}
+                                                            className="text-sm border border-gray-200 rounded-lg px-2 py-1 text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-200"
+                                                        />
+                                                    </div>
+                                                )}
 
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm text-gray-600">⚠️ Alerta de créditos baixos</span>
@@ -180,14 +216,14 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
                         {/* Notifications List */}
                         <div className="flex-1 overflow-y-auto">
-                            {notifications.length === 0 ? (
+                            {filteredNotifications.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
                                     <Bell className="w-12 h-12 mb-4 opacity-30" />
-                                    <p className="text-sm">Nenhuma notificação</p>
+                                    <p className="text-sm">{filter === 'unread' ? 'Nenhuma não lida' : 'Nenhuma notificação'}</p>
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-50">
-                                    {notifications.map((notification) => (
+                                    {filteredNotifications.map((notification) => (
                                         <div
                                             key={notification.id}
                                             onClick={() => onMarkAsRead(notification.id)}
@@ -201,7 +237,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                                                 <p className={`text-sm ${notification.read ? 'text-gray-600' : 'text-gray-800 font-medium'}`}>
                                                     {notification.title}
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                                <p className="text-xs text-gray-500 mt-0.5 break-words">
                                                     {notification.body}
                                                 </p>
                                             </div>
@@ -216,7 +252,21 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
                         {/* Footer */}
                         {notifications.length > 0 && (
-                            <div className="p-4 border-t border-gray-100">
+                            <div className="p-4 border-t border-gray-100 space-y-3">
+                                <div className="flex items-center justify-between gap-2">
+                                    <button
+                                        onClick={() => setFilter('all')}
+                                        className={`flex-1 text-xs font-semibold py-2 rounded-full transition-colors ${filter === 'all' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                    >
+                                        Todas
+                                    </button>
+                                    <button
+                                        onClick={() => setFilter('unread')}
+                                        className={`flex-1 text-xs font-semibold py-2 rounded-full transition-colors ${filter === 'unread' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                    >
+                                        Não lidas
+                                    </button>
+                                </div>
                                 <button
                                     onClick={onClearAll}
                                     className="w-full py-2 text-sm text-gray-500 hover:text-red-500 flex items-center justify-center gap-2 transition-colors"

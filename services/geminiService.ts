@@ -25,10 +25,13 @@ export const professionalizeDescription = async (text: string): Promise<string> 
 
 export const estimateServicePrice = async (description: string): Promise<string> => {
   try {
+    const trimmedDescription = description.trim();
+    if (!trimmedDescription) return '0';
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Atue como um especialista em orçamentos para autônomos no Brasil. 
-      Baseado em dados de mercado, estime um valor médio único (apenas mão de obra ou serviço padrão) para a seguinte descrição: "${description}".
+      Baseado em dados de mercado, estime um valor médio único (apenas mão de obra ou serviço padrão) para a seguinte descrição: "${trimmedDescription}".
       
       Considere a complexidade implícita.
       Retorne APENAS o número puro (ex: 150.00). Não use "R$", texto ou faixas de preço. Se não conseguir estimar, retorne "0".`,
@@ -38,12 +41,14 @@ export const estimateServicePrice = async (description: string): Promise<string>
     });
 
     const text = response.text?.trim() || '';
-    // Remove any non-numeric characters except dot and comma, then normalize decimal
-    const numberStr = text.replace(/[^0-9.,]/g, '').replace(',', '.');
-    return numberStr;
+    const match = text.match(/-?\d+(?:[.,]\d+)?/);
+    const normalized = match ? match[0].replace(',', '.') : '';
+    const value = normalized ? Number(normalized) : NaN;
+    if (Number.isNaN(value) || !Number.isFinite(value)) return '0';
+    return value.toString();
   } catch (error) {
     console.error("Erro ao estimar preço:", error);
-    return '';
+    return '0';
   }
 };
 

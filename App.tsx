@@ -128,6 +128,7 @@ const App: React.FC = () => {
     requestPermission,
     updateSettings: updateNotificationSettings,
     markAsRead,
+    markAllAsRead,
     clearAll: clearAllNotifications
   } = useNotifications();
 
@@ -351,6 +352,7 @@ const App: React.FC = () => {
             onRequestPermission={requestPermission}
             onUpdateSettings={updateNotificationSettings}
             onMarkAsRead={markAsRead}
+            onMarkAllAsRead={markAllAsRead}
             onClearAll={clearAllNotifications}
           />
         </div>

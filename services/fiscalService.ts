@@ -1,10 +1,14 @@
 import { supabase } from './supabaseClient';
 
+export interface MunicipalParams {
+    [key: string]: unknown;
+}
+
 export interface FiscalConfig {
     user_id: string;
     certificate_path: string | null;
     certificate_password?: string;
-    municipal_params: any;
+    municipal_params: MunicipalParams;
     environment: 'homologation' | 'production';
     // Campos fiscais adicionais
     cnpj?: string;
@@ -71,16 +75,24 @@ export const fiscalService = {
         }
     },
 
-    // 3. Issue NFS-e (Call Edge Function)
+    // 3. Issue NFS-e (Call Node.js Microservice)
     async emitNFSe(invoiceId: string) {
         try {
-            // New logic: Call Node.js Microservice
+            // Get current session token
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                throw new Error('Usuário não autenticado');
+            }
+
             // Use environment variable or default to localhost:4000
             const serviceUrl = import.meta.env.VITE_NFSE_SERVICE_URL || 'http://localhost:4000';
             const response = await fetch(`${serviceUrl}/emit-nfse`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({ invoiceId })
             });

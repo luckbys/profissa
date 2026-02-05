@@ -60,9 +60,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ appointments, clients, onAd
     if (!newApt.clientId || !newApt.date || !newApt.time || !newApt.service) return;
 
     const isoDate = new Date(`${newApt.date}T${newApt.time}`).toISOString();
+    
+    // Generate a valid UUID for Supabase compatibility
+    const appointmentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
 
     onAddAppointment({
-      id: Date.now().toString(),
+      id: appointmentId,
       clientId: newApt.clientId,
       date: isoDate,
       service: newApt.service,

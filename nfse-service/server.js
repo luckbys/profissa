@@ -21,24 +21,42 @@ app.get('/health', (req, res) => {
 // Emit NFS-e endpoint
 app.post('/emit-nfse', async (req, res) => {
     const { invoiceId } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+        return res.status(401).json({ sucesso: false, erro: 'Authorization header missing' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ sucesso: false, erro: 'Bearer token missing' });
+    }
 
     if (!invoiceId) {
         return res.status(400).json({ sucesso: false, erro: 'invoiceId is required' });
     }
 
-    console.log(`[NFS-e] Processing invoice with Nuvem Fiscal: ${invoiceId}`);
-
     try {
-        // 1. Fetch Invoice Data
+        // Verify user from token
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+        if (authError || !user) {
+            return res.status(401).json({ sucesso: false, erro: 'Invalid token' });
+        }
+
+        console.log(`[NFS-e] Processing invoice ${invoiceId} for user ${user.id}`);
+
+        // 1. Fetch Invoice Data (and verify ownership)
         const { data: invoice, error: invoiceError } = await supabase
             .from('nfs_e')
             .select('*, clients(*)')
             .eq('id', invoiceId)
+            .eq('user_id', user.id) // Enforce ownership
             .single();
 
         if (invoiceError || !invoice) {
             console.error('[NFS-e] Invoice fetch error:', invoiceError);
-            return res.status(404).json({ sucesso: false, erro: 'Nota fiscal não encontrada' });
+            return res.status(404).json({ sucesso: false, erro: 'Nota fiscal não encontrada ou acesso negado' });
         }
 
         // Fetch fiscal_config separately

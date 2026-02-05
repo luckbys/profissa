@@ -170,14 +170,34 @@ export const syncAppointments = async (userId: string): Promise<Appointment[]> =
 
         if (error) throw error;
 
-        const appointments: Appointment[] = (remoteAppointments || []).map(a => ({
-            id: a.id,
-            clientId: a.client_id || '',
-            date: a.date,
-            service: a.service,
-            price: Number(a.price) || 0,
-            status: a.status as 'pending' | 'completed' | 'cancelled'
-        }));
+        const appointments: Appointment[] = (remoteAppointments || []).map(a => {
+            // Reconstruct ISO date from date + time columns if available
+            let isoDate = a.date;
+            if (a.date && a.time) {
+                // If date is YYYY-MM-DD and time is HH:MM
+                isoDate = `${a.date}T${a.time}:00.000Z`; // Simple reconstruction
+                
+                // Try to respect timezone if needed, but for now simple concatenation
+                try {
+                   // Verify if valid date
+                   const d = new Date(`${a.date}T${a.time}`);
+                   if (!isNaN(d.getTime())) {
+                       isoDate = d.toISOString();
+                   }
+                } catch (e) {
+                    console.warn('Error parsing date/time from DB:', a.date, a.time);
+                }
+            }
+
+            return {
+                id: a.id,
+                clientId: a.client_id || '',
+                date: isoDate,
+                service: a.service,
+                price: Number(a.price) || 0,
+                status: a.status as 'pending' | 'completed' | 'cancelled'
+            };
+        });
 
         localStorage.setItem(STORAGE_KEYS.appointments, JSON.stringify(appointments));
         return appointments;
@@ -208,11 +228,17 @@ export const saveAppointmentToSupabase = async (userId: string, appointment: App
     }
 
     try {
+        // Split ISO date into date and time for Supabase columns
+        const dateObj = new Date(appointmentToSave.date);
+        const dateStr = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+        const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
         const { error } = await supabase.from('appointments').upsert({
             id: appointmentToSave.id,
             user_id: userId,
             client_id: appointmentToSave.clientId || null,
-            date: appointmentToSave.date,
+            date: dateStr,
+            time: timeStr,
             service: appointmentToSave.service,
             price: appointmentToSave.price,
             status: appointmentToSave.status

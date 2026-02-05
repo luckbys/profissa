@@ -8,13 +8,14 @@ import { ServiceTemplate } from '../types/serviceTemplate';
 import ServiceTemplateSelector from './ServiceTemplateSelector';
 import CreditsDisplay from './CreditsDisplay';
 import {
-    Send, Download, Plus, Loader2, X, FileText
+    Send, Download, Plus, Loader2, X, FileText, Lock
 } from 'lucide-react';
 import InvoiceTemplate from './InvoiceTemplate';
 import DocumentCustomizer, { DocumentCustomization, DEFAULT_CUSTOMIZATION } from './DocumentCustomizer';
 import { fiscalService } from '../services/fiscalService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../contexts/ToastContext';
+import { calculateTotal, InvoiceItem } from '../utils/financialUtils';
 
 interface DocumentGeneratorProps {
     clients: Client[];
@@ -22,6 +23,7 @@ interface DocumentGeneratorProps {
     initialType?: 'quote' | 'receipt' | 'nfse';
     initialClientId?: string;
     onNavigateToHistory?: () => void;
+    onNavigateToProfile?: () => void; // New prop for navigation
     onSaveDocument?: (doc: SavedDocument) => void;
     onBack?: () => void; // Optional back button if needed
 }
@@ -32,6 +34,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     initialType = 'quote',
     initialClientId = '',
     onNavigateToHistory,
+    onNavigateToProfile,
     onSaveDocument
 }) => {
     const [selectedClientId, setSelectedClientId] = useState(initialClientId);
@@ -45,7 +48,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         if (initialClientId) setSelectedClientId(initialClientId);
     }, [initialType, initialClientId]);
 
-    const [items, setItems] = useState<any[]>([]);
+    const [items, setItems] = useState<InvoiceItem[]>([]);
     const [newItemDesc, setNewItemDesc] = useState('');
     const [newItemPrice, setNewItemPrice] = useState('');
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -70,7 +73,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
     const handleRemoveItem = (id: string) => setItems(items.filter(i => i.id !== id));
 
-    const total = items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+    const total = calculateTotal(items);
 
     const handleGenerateDocument = () => {
         if (!canGenerateDocument) {
@@ -106,8 +109,37 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     const handleEmitNFSe = async () => {
         if (!selectedClientId || items.length === 0) return;
 
+        // Check Pro Plan
+        if (!userProfile?.isPro) {
+            const wantUpgrade = window.confirm("A emissão de Nota Fiscal (NFS-e) é exclusiva do plano Pro.\n\nDeseja conhecer o plano Pro e desbloquear recursos ilimitados?");
+            if (wantUpgrade) {
+                upgradeToPro();
+            }
+            return;
+        }
+
         if (!user?.id) {
             showToast('Erro de autenticação', 'Tente recarregar a página.', 'error');
+            return;
+        }
+
+        // Check if fiscal config is ready
+        try {
+            const config = await fiscalService.getConfig(user.id);
+            if (!config || !config.cnpj || !config.certificate_path || !config.inscricao_municipal) {
+                const goToConfig = window.confirm("Configuração Fiscal Incompleta!\n\nPara emitir notas fiscais, você precisa configurar seu CNPJ, Inscrição Municipal e Certificado Digital.\n\nDeseja ir para as configurações agora?");
+                if (goToConfig) {
+                    if (onNavigateToProfile) {
+                        onNavigateToProfile();
+                    } else {
+                        alert("Por favor, acesse 'Meu Perfil' > 'Notas Fiscais' para configurar seus dados.");
+                    }
+                }
+                return;
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Erro', 'Erro ao verificar configurações fiscais.', 'error');
             return;
         }
 
@@ -240,7 +272,13 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     <div className="bg-gray-100 p-1.5 rounded-xl flex relative">
                         <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === 'quote' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`} onClick={() => setType('quote')}>Orçamento</button>
                         <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === 'receipt' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`} onClick={() => setType('receipt')}>Recibo</button>
-                        <button className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${type === 'nfse' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`} onClick={() => setType('nfse')}>Nota Fiscal</button>
+                        <button 
+                            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${type === 'nfse' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`} 
+                            onClick={() => setType('nfse')}
+                        >
+                            Nota Fiscal
+                            {!userProfile?.isPro && <Lock size={14} className="text-gray-400" />}
+                        </button>
                     </div>
                 </div>
 

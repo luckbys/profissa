@@ -288,6 +288,7 @@ const App: React.FC = () => {
             initialType={financeInitialType}
             initialClientId={financeInitialClientId}
             onNavigateToHistory={() => setCurrentView('history')}
+            onNavigateToProfile={() => setCurrentView('profile')} // Pass navigation handler
             onSaveDocument={addDocument}
           />
         );

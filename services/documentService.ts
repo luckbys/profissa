@@ -179,7 +179,7 @@ export const generateDocumentWhatsAppLink = (doc: SavedDocument): string => {
 export const duplicateDocument = (doc: SavedDocument): SavedDocument => {
     return {
         ...doc,
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
         documentNumber: generateDocumentNumber(doc.type)
     };

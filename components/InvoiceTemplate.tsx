@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserProfile } from '../types';
-import { Calendar, Building2, Phone, Mail, FileText, Award, Star } from 'lucide-react';
+import { Calendar, Building2, Phone, Mail, FileText, Award, Star, Copy, Check } from 'lucide-react';
+import { generatePixPayload, getQRCodeUrl } from '../utils/pixUtils';
 
 interface InvoiceItem {
     id: string;
@@ -116,12 +117,28 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
 }) => {
     const isQuote = type === 'quote';
     const style = TEMPLATE_STYLES[templateStyle];
+    const [pixCopied, setPixCopied] = useState(false);
 
     const dateFormatted = new Date(createdAt).toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: 'long',
         year: 'numeric'
     });
+
+    const pixPayload = userProfile?.pixKey ? generatePixPayload(
+        userProfile.pixKey,
+        userProfile.pixName || userProfile.companyName || userProfile.name || 'PROFISSIONAL',
+        userProfile.pixCity || 'SAO PAULO',
+        total,
+        `${isQuote ? 'ORC' : 'REC'} ${documentNumber}`
+    ) : null;
+
+    const handleCopyPix = () => {
+        if (!pixPayload) return;
+        navigator.clipboard.writeText(pixPayload);
+        setPixCopied(true);
+        setTimeout(() => setPixCopied(false), 2000);
+    };
 
     // Minimal template has a different structure
     if (templateStyle === 'minimal') {
@@ -182,6 +199,26 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
                         <p className="text-4xl font-black text-gray-900">R$ {total.toFixed(2)}</p>
                     </div>
                 </div>
+
+                {/* PIX Section for Minimal */}
+                {pixPayload && (
+                    <div className="mb-8 p-6 border-2 border-gray-900 rounded-2xl flex items-center gap-6">
+                        <div className="w-24 h-24 shrink-0 bg-white p-1 border border-gray-100">
+                            <img src={getQRCodeUrl(pixPayload)} alt="PIX QR Code" className="w-full h-full" />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-1">Pagar com PIX</h4>
+                            <p className="text-xs text-gray-500 mb-3">Escaneie o código ao lado ou use o botão para copiar o código.</p>
+                            <button 
+                                onClick={handleCopyPix}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-800 transition-all"
+                            >
+                                {pixCopied ? <Check size={14} /> : <Copy size={14} />}
+                                {pixCopied ? 'CÓDIGO COPIADO' : 'PIX COPIA E COLA'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="mt-auto pt-8 border-t border-gray-200 text-center text-gray-400 text-xs">
@@ -287,6 +324,33 @@ const InvoiceTemplate: React.FC<InvoiceTemplateProps> = ({
                         </div>
                     </div>
                 </div>
+
+                {/* PIX Payment Section */}
+                {pixPayload && (
+                    <div className={`mb-8 p-6 rounded-2xl border-2 ${style.accentColor === 'blue' ? 'border-blue-100 bg-blue-50/30' : 
+                        style.accentColor === 'amber' ? 'border-amber-100 bg-amber-50/30' : 
+                        style.accentColor === 'purple' ? 'border-purple-100 bg-purple-50/30' : 'border-gray-100 bg-gray-50/30'} flex items-center gap-8`}>
+                        <div className="w-32 h-32 shrink-0 bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+                            <img src={getQRCodeUrl(pixPayload)} alt="PIX QR Code" className="w-full h-full" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className={`p-1.5 rounded-lg ${style.totalBg} ${style.totalText}`}>
+                                    <Star size={16} fill="currentColor" />
+                                </div>
+                                <h4 className="text-sm font-black text-gray-900 uppercase tracking-tight">Pagar com PIX</h4>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-4 leading-relaxed">Pague de forma rápida e segura. Escaneie o QR Code ou utilize o botão abaixo para copiar o código PIX.</p>
+                            <button 
+                                onClick={handleCopyPix}
+                                className={`flex items-center gap-2 px-6 py-3 ${style.totalBg} ${style.totalText} rounded-xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg`}
+                            >
+                                {pixCopied ? <Check size={16} /> : <Copy size={16} />}
+                                {pixCopied ? 'Código Copiado!' : 'Copiar PIX Copia e Cola'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Payment Methods */}
                 {showPaymentMethods && paymentMethods.length > 0 && (

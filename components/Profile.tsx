@@ -406,6 +406,67 @@ const Profile: React.FC<ProfileProps> = ({ userProfile, onUpdateProfile, appoint
         </div>
       </CollapsibleSection>
 
+      <CollapsibleSection title="Pagamento PIX" icon={<DollarSign size={20} />} badge={formData.pixKey ? 'Configurado' : undefined}>
+        <div className="space-y-4 mt-3">
+          <div className="bg-amber-50 p-3 rounded-xl border border-amber-100 mb-2">
+            <p className="text-[10px] text-amber-800 font-medium">Configure sua chave PIX para receber pagamentos direto nos seus orçamentos e recibos.</p>
+          </div>
+          
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Tipo de Chave</label>
+            <select 
+              value={formData.pixKeyType || 'cpf'} 
+              onChange={(e) => setFormData({ ...formData, pixKeyType: e.target.value as any })}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+            >
+              <option value="cpf">CPF</option>
+              <option value="cnpj">CNPJ</option>
+              <option value="email">E-mail</option>
+              <option value="phone">Celular (com DDD)</option>
+              <option value="random">Chave Aleatória</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Chave PIX</label>
+            <input
+              type="text"
+              placeholder="Sua chave aqui..."
+              value={formData.pixKey || ''}
+              onChange={(e) => setFormData({ ...formData, pixKey: e.target.value })}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nome Beneficiário</label>
+              <input
+                type="text"
+                placeholder="Seu nome no banco"
+                value={formData.pixName || ''}
+                onChange={(e) => setFormData({ ...formData, pixName: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Cidade</label>
+              <input
+                type="text"
+                placeholder="Ex: Sao Paulo"
+                value={formData.pixCity || ''}
+                onChange={(e) => setFormData({ ...formData, pixCity: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+              />
+            </div>
+          </div>
+
+          <button onClick={handleSaveBranding} className="w-full py-2.5 bg-brand-600 text-white rounded-xl font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center gap-2">
+            <Save size={14} /> Salvar Chave PIX
+          </button>
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection title="Marca & Documentos" icon={<Building2 size={20} />}>
         <div className="space-y-4 mt-3">
           <div>

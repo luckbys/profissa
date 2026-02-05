@@ -64,10 +64,14 @@ export interface UserProfile {
   phone: string;
   email: string;
   companyName?: string;
-  logo?: string; // base64 encoded image
+  logo?: string; // base4 encoded image
   isPro?: boolean;
   subscriptionStatus?: 'free' | 'pro';
   credits?: number;
+  pixKey?: string;
+  pixKeyType?: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
+  pixName?: string;
+  pixCity?: string;
 }
 
 export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'documents' | 'profile' | 'history' | 'coach' | 'booking';

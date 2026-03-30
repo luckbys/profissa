@@ -3,15 +3,8 @@ const qs = require('querystring');
 require('dotenv').config();
 
 const AUTH_URL = 'https://auth.nuvemfiscal.com.br/oauth/token';
-const API_BASE_URL = 'https://api.nuvemfiscal.com.br'; // Production
-const API_SANDBOX_URL = 'https://api.sandbox.nuvemfiscal.com.br'; // Sandbox - VERIFY correct URL
-
-// Note: Nuvem Fiscal usually uses the same auth endpoint but different API base for sandbox?
-// Actually documentation says: "https://auth.nuvemfiscal.com.br/oauth/token"
-// And API: "https://api.nuvemfiscal.com.br"
-// For testing, we might need to check if there is a specific sandbox URL or if we just use "ambiente": "homologacao" in payload.
-// Documentation says: "ambiente": "homologacao" in the payload directs it to sandbox? 
-// Or usually API is `https://api.nuvemfiscal.com.br`. The "ambiente" field in JSON controls destination.
+const API_PROD_URL = 'https://api.nuvemfiscal.com.br';
+const API_SANDBOX_URL = 'https://api.sandbox.nuvemfiscal.com.br';
 
 let cachedToken = null;
 let tokenExpiration = null;
@@ -23,10 +16,9 @@ async function authenticate() {
 
     const clientId = process.env.NUVEM_CLIENT_ID;
     const clientSecret = process.env.NUVEM_CLIENT_SECRET;
-    const scope = 'nfse'; // Check docs if scope is needed, usually 'nfse' or 'empresa'
 
     if (!clientId || !clientSecret) {
-        throw new Error('Nuvem Fiscal credentials (CLIENT_ID/SECRET) not configured.');
+        throw new Error('Nuvem Fiscal credentials (NUVEM_CLIENT_ID/NUVEM_CLIENT_SECRET) não configurados.');
     }
 
     try {
@@ -36,7 +28,7 @@ async function authenticate() {
                 grant_type: 'client_credentials',
                 client_id: clientId,
                 client_secret: clientSecret,
-                scope: scope
+                scope: 'nfse'
             }),
             {
                 headers: {
@@ -47,28 +39,29 @@ async function authenticate() {
 
         const { access_token, expires_in } = response.data;
         cachedToken = access_token;
-        // Set expiration 5 minutes before actual expiry to be safe
+        // Cache token with 5-minute buffer before actual expiry
         tokenExpiration = new Date(new Date().getTime() + (expires_in - 300) * 1000);
 
-        console.log('[Nuvem Fiscal] Authenticated successfully');
+        console.log('[Nuvem Fiscal] Autenticado com sucesso');
         return cachedToken;
     } catch (error) {
-        console.error('[Nuvem Fiscal] Auth Error:', error.response?.data || error.message);
-        throw new Error('Failed to authenticate with Nuvem Fiscal');
+        console.error('[Nuvem Fiscal] Erro de autenticação:', error.response?.data || error.message);
+        throw new Error('Falha ao autenticar com Nuvem Fiscal: ' + (error.response?.data?.error_description || error.message));
     }
 }
 
 async function emitirNfse(data, isProduction = false) {
     const token = await authenticate();
+    const apiUrl = isProduction ? API_PROD_URL : API_SANDBOX_URL;
 
-    // Map internal data to Nuvem Fiscal DPS JSON
     const payload = mapToDPS(data, isProduction);
 
-    console.log('[Nuvem Fiscal] Sending DPS Payload:', JSON.stringify(payload, null, 2));
+    console.log('[Nuvem Fiscal] Enviando DPS para', isProduction ? 'PRODUÇÃO' : 'SANDBOX');
+    console.log('[Nuvem Fiscal] Payload DPS:', JSON.stringify(payload, null, 2));
 
     try {
         const response = await axios.post(
-            `${API_BASE_URL}/nfse/dps`,
+            `${apiUrl}/nfse/dps`,
             payload,
             {
                 headers: {
@@ -84,21 +77,32 @@ async function emitirNfse(data, isProduction = false) {
         };
 
     } catch (error) {
-        console.error('[Nuvem Fiscal] Emission Error:', JSON.stringify(error.response?.data, null, 2) || error.message);
+        const apiError = error.response?.data;
+        console.error('[Nuvem Fiscal] Erro na emissão:', JSON.stringify(apiError, null, 2) || error.message);
+
+        // Extract most meaningful error message from Nuvem Fiscal response
+        let mensagemErro = error.message;
+        if (apiError) {
+            if (apiError.message) mensagemErro = apiError.message;
+            else if (apiError.error?.message) mensagemErro = apiError.error.message;
+            else if (apiError.errors?.length) mensagemErro = apiError.errors.map(e => e.message || e).join('; ');
+        }
+
         return {
             sucesso: false,
-            erro: error.response?.data?.error?.message || error.response?.data?.message || error.message,
-            details: error.response?.data
+            erro: mensagemErro,
+            details: apiError
         };
     }
 }
 
-async function consultarNfse(nuvemId) {
+async function consultarNfse(nuvemId, isProduction = false) {
     const token = await authenticate();
+    const apiUrl = isProduction ? API_PROD_URL : API_SANDBOX_URL;
 
     try {
         const response = await axios.get(
-            `${API_BASE_URL}/nfse/${nuvemId}`,
+            `${apiUrl}/nfse/${nuvemId}`,
             {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -106,99 +110,106 @@ async function consultarNfse(nuvemId) {
             }
         );
 
-        console.log('[Nuvem Fiscal] Consulta Response:', JSON.stringify(response.data, null, 2));
-
         return {
             sucesso: true,
             data: response.data
         };
 
     } catch (error) {
-        console.error('[Nuvem Fiscal] Consulta Error:', JSON.stringify(error.response?.data, null, 2) || error.message);
+        const apiError = error.response?.data;
+        console.error('[Nuvem Fiscal] Erro na consulta:', JSON.stringify(apiError, null, 2) || error.message);
         return {
             sucesso: false,
-            erro: error.response?.data?.error?.message || error.response?.data?.message || error.message
+            erro: apiError?.message || apiError?.error?.message || error.message
         };
     }
 }
 
 function mapToDPS(data, isProduction) {
-    // data contains: invoice, config, tomador details
     const { invoice, config } = data;
 
     const prestadorCnpj = config.cnpj?.replace(/\D/g, '') || '';
     const inscMunicipal = config.inscricao_municipal || '';
-
-    // Address mapping - SJC is 3549904
     const codigoMunicipio = config.codigo_municipio || '3549904';
 
-    const tomadorCpfCnpj = invoice.clients?.cpf?.replace(/\D/g, '') || '';
+    // Tomador (cliente)
+    const tomadorCpfCnpj = (invoice.clients?.cpf || invoice.clients?.cnpj || '').replace(/\D/g, '');
     const tomadorNome = invoice.clients?.name || 'Consumidor Final';
     const tomadorEmail = invoice.clients?.email || '';
 
-    // Basic address fallback if not present on client
-    const tomadorEndereco = {
-        xLgr: invoice.clients?.address || 'Rua do Cliente',
-        nro: invoice.clients?.number || 'S/N',
-        xCpl: invoice.clients?.complement || '',
-        xBairro: invoice.clients?.neighborhood || 'Centro',
-        cMun: invoice.clients?.city_code || codigoMunicipio,
-        CEP: invoice.clients?.zip_code?.replace(/\D/g, '') || '12200000'
-    };
+    // Address fields - use empty string rather than fake placeholders
+    const logradouro = invoice.clients?.address || '';
+    const numero = invoice.clients?.number || 'S/N';
+    const complemento = invoice.clients?.complement || '';
+    const bairro = invoice.clients?.neighborhood || '';
+    const cepCliente = invoice.clients?.zip_code?.replace(/\D/g, '') || '';
+    const codigoMunicipioCliente = invoice.clients?.city_code || codigoMunicipio;
 
-    // Build tomador object - only include CPF/CNPJ if present
+    // Build tomador end (address) - only include if we have the required fields
+    const endNacObj = { cMun: codigoMunicipioCliente };
+    if (cepCliente) endNacObj.CEP = cepCliente;
+
+    const endObj = { endNac: endNacObj };
+    if (logradouro) endObj.xLgr = logradouro;
+    endObj.nro = numero;
+    if (bairro) endObj.xBairro = bairro;
+    if (complemento) endObj.xCpl = complemento;
+
     const tomaObj = {
         xNome: tomadorNome,
-        end: {
-            endNac: {
-                cMun: tomadorEndereco.cMun,
-                CEP: tomadorEndereco.CEP
-            },
-            xLgr: tomadorEndereco.xLgr,
-            nro: tomadorEndereco.nro,
-            xBairro: tomadorEndereco.xBairro
-        }
+        end: endObj
     };
 
-    // Only add CPF/CNPJ if valid length
+    // Only add CPF/CNPJ if valid
     if (tomadorCpfCnpj.length === 14) {
         tomaObj.CNPJ = tomadorCpfCnpj;
-    } else if (tomadorCpfCnpj.length === 11) {   // a
+    } else if (tomadorCpfCnpj.length === 11) {
         tomaObj.CPF = tomadorCpfCnpj;
     }
 
-    // Add optional fields
     if (tomadorEmail) tomaObj.email = tomadorEmail;
-    if (tomadorEndereco.xCpl) tomaObj.end.xCpl = tomadorEndereco.xCpl;
 
-    // Calculate ISS values
+    // Service values
     const valorServico = Number(invoice.service_amount || 0);
-    const aliquotaIss = Number(config.aliquota_iss || 2); // Stored as percentage (2 = 2%)
+    // aliquota_iss stored as percentage (e.g. 2.5 = 2.5%)
+    const aliquotaIssPerc = Number(config.aliquota_iss || 2);
+    const aliquotaIssDecimal = aliquotaIssPerc / 100; // e.g. 0.025
 
-    // Round to 2 decimals to match API requirements
-    const vISSQN = Number((valorServico * (aliquotaIss / 100)).toFixed(2));
+    const vISSQN = Number((valorServico * aliquotaIssDecimal).toFixed(2));
     const vLiq = Number((valorServico - vISSQN).toFixed(2));
 
+    // Service codes
+    // codigo_tributacao_nacional = LC 116 national code (e.g. "01.01")
+    // codigo_servico = municipal service code (e.g. "0101")
+    const codigoTribNacional = config.codigo_tributacao_nacional || config.codigo_servico || '01.01';
+    const codigoTribMunicipal = config.codigo_servico_municipal || codigoTribNacional.replace('.', '');
+
+    const serviceDescription = invoice.description || invoice.service_description || 'Serviços Prestados';
+
+    // Build prestador object
+    const prestObj = { CNPJ: prestadorCnpj };
+    if (inscMunicipal) prestObj.IM = inscMunicipal;
+
     return {
-        provedor: "padrao",
-        ambiente: isProduction ? "producao" : "homologacao",
+        provedor: 'padrao',
+        ambiente: isProduction ? 'producao' : 'homologacao',
         referencia: invoice.id,
         infDPS: {
             tpAmb: isProduction ? 1 : 2,
             dhEmi: new Date().toISOString(),
             dCompet: new Date().toISOString().split('T')[0],
-            prest: {
-                CNPJ: prestadorCnpj
-            },
+            nDPS: invoice.dps_number || 1,
+            serie: invoice.dps_series || 'E',
+            prest: prestObj,
             toma: tomaObj,
             serv: {
                 locPrest: {
                     cLocPrestacao: codigoMunicipio
                 },
                 cServ: {
-                    cTribNac: config.codigo_servico || '14.01',
-                    cTribMun: config.codigo_servico_municipal || '1401',
-                    xDescServ: invoice.description || 'Serviços Prestados'
+                    cTribNac: codigoTribNacional,
+                    cTribMun: codigoTribMunicipal,
+                    xDescServ: serviceDescription
                 }
             },
             valores: {
@@ -206,11 +217,16 @@ function mapToDPS(data, isProduction) {
                     vServ: valorServico
                 },
                 trib: {
+                    totTrib: {
+                        // Include estimated taxes for transparency
+                        pTotTrib: aliquotaIssPerc,
+                        vTotTrib: vISSQN
+                    },
                     tribMun: {
                         tribISSQN: 1, // 1 = Operação Tributável
-                        pAliq: aliquotaIss / 100, // Convert to decimal (0.02 = 2%)
-                        tpRetISSQN: 2, // 2 = Não Retido
                         cLocIncid: codigoMunicipio,
+                        pAliq: aliquotaIssDecimal,
+                        tpRetISSQN: 2, // 2 = Não Retido
                         vBC: valorServico,
                         vISSQN: vISSQN,
                         vLiq: vLiq

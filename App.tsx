@@ -19,9 +19,10 @@ import AuthScreen from './components/AuthScreen';
 import OnboardingScreen from './components/OnboardingScreen';
 import { isAppLocked, unlockApp } from './services/authService';
 import { getDocuments } from './services/documentService';
+import Pipeline from './components/Pipeline';
 import {
   LayoutDashboard, Users, CalendarDays, ReceiptText, UserCircle, Loader2, FileText,
-  Plus, X, FilePlus, Bot, DollarSign
+  Plus, X, FilePlus, Bot, DollarSign, TrendingUp
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -303,6 +304,13 @@ const App: React.FC = () => {
             onViewFinance={() => setCurrentView('finance')}
           />
         );
+      case 'pipeline':
+        return (
+          <Pipeline
+            clients={clients}
+            onGenerateDocument={handleGenerateDocument}
+          />
+        );
       case 'coach':
         return <AICoach />;
       case 'history':
@@ -411,21 +419,21 @@ const App: React.FC = () => {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 flex justify-around py-3 px-2 pb-6 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-100 flex justify-around py-3 px-1 pb-6 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <button
           onClick={() => handleNavigation('dashboard')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'dashboard' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-lg transition-colors ${currentView === 'dashboard' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <LayoutDashboard size={24} strokeWidth={currentView === 'dashboard' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Início</span>
+          <LayoutDashboard size={22} strokeWidth={currentView === 'dashboard' ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">Início</span>
         </button>
 
         <button
           onClick={() => handleNavigation('clients')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'clients' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-lg transition-colors ${currentView === 'clients' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Users size={24} strokeWidth={currentView === 'clients' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Clientes</span>
+          <Users size={22} strokeWidth={currentView === 'clients' ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">Clientes</span>
         </button>
 
         {/* FAB Main Button */}
@@ -433,23 +441,23 @@ const App: React.FC = () => {
           onClick={() => setIsFabOpen(!isFabOpen)}
           className={`relative -top-6 text-white p-4 rounded-full shadow-lg border-4 border-gray-50 hover:scale-105 transition-all ${isFabOpen ? 'bg-gray-800 rotate-45' : 'bg-brand-600'}`}
         >
-          <Plus size={28} />
+          <Plus size={26} />
         </button>
 
         <button
-          onClick={() => handleNavigation('calendar')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'calendar' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+          onClick={() => handleNavigation('pipeline')}
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-lg transition-colors ${currentView === 'pipeline' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <CalendarDays size={24} strokeWidth={currentView === 'calendar' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Agenda</span>
+          <TrendingUp size={22} strokeWidth={currentView === 'pipeline' ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">Pipeline</span>
         </button>
 
         <button
           onClick={() => handleNavigation('finance')}
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${currentView === 'finance' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center gap-1 p-1.5 rounded-lg transition-colors ${currentView === 'finance' ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <DollarSign size={24} strokeWidth={currentView === 'finance' ? 2.5 : 2} />
-          <span className="text-[10px] font-medium">Finanças</span>
+          <DollarSign size={22} strokeWidth={currentView === 'finance' ? 2.5 : 2} />
+          <span className="text-[9px] font-medium">Finanças</span>
         </button>
       </nav>
     </div>

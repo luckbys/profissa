@@ -74,6 +74,6 @@ export interface UserProfile {
   pixCity?: string;
 }
 
-export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'documents' | 'profile' | 'history' | 'coach' | 'booking';
+export type ViewState = 'dashboard' | 'clients' | 'calendar' | 'finance' | 'documents' | 'profile' | 'history' | 'coach' | 'booking' | 'pipeline';
 
 export * from './types/serviceTemplate';

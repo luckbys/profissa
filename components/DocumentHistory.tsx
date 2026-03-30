@@ -275,7 +275,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ documents: propDocume
                                                     <hr className="my-1 border-gray-100" />
                                                     {doc.type === 'nfse' ? (
                                                         <>
-                                                            {doc.status === 'pending' && (
+                                                            {(doc.status === 'pending' || doc.status === 'error') && (
                                                                 <button
                                                                     onClick={() => handleCheckStatus(doc)}
                                                                     className="w-full px-4 py-2.5 text-left text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
@@ -347,7 +347,7 @@ const DocumentHistory: React.FC<DocumentHistoryProps> = ({ documents: propDocume
                                 {selectedDoc.type === 'nfse' && (
                                     <div className="mt-3 bg-gray-50 rounded-lg p-3 text-xs space-y-1">
                                         <div className="flex justify-between"><span className="text-gray-500">Número da Nota:</span> <span className="font-mono">{selectedDoc.documentNumber}</span></div>
-                                        <div className="flex justify-between"><span className="text-gray-500">Ambiente:</span> <span className="font-medium">Homologação</span></div>
+                                        <div className="flex justify-between"><span className="text-gray-500">Status:</span> <span className="font-medium">{getStatusLabel(selectedDoc.status)}</span></div>
                                         <div className="flex justify-between"><span className="text-gray-500">Emissão:</span> <span>{new Date(selectedDoc.createdAt).toLocaleString()}</span></div>
                                     </div>
                                 )}

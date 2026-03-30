@@ -58,6 +58,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
     const [showPreview, setShowPreview] = useState(false);
     const [showNoCreditsWarning, setShowNoCreditsWarning] = useState(false);
+    const [showNfseConfirm, setShowNfseConfirm] = useState(false);
     const [docCustomization, setDocCustomization] = useState<DocumentCustomization>(DEFAULT_CUSTOMIZATION);
 
     const { subscription, canGenerateDocument, useCredit, upgradeToPro } = useSubscription(userProfile);
@@ -111,10 +112,7 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
         // Check Pro Plan
         if (!userProfile?.isPro) {
-            const wantUpgrade = window.confirm("A emissão de Nota Fiscal (NFS-e) é exclusiva do plano Pro.\n\nDeseja conhecer o plano Pro e desbloquear recursos ilimitados?");
-            if (wantUpgrade) {
-                upgradeToPro();
-            }
+            upgradeToPro();
             return;
         }
 
@@ -126,15 +124,9 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         // Check if fiscal config is ready
         try {
             const config = await fiscalService.getConfig(user.id);
-            if (!config || !config.cnpj || !config.certificate_path || !config.inscricao_municipal) {
-                const goToConfig = window.confirm("Configuração Fiscal Incompleta!\n\nPara emitir notas fiscais, você precisa configurar seu CNPJ, Inscrição Municipal e Certificado Digital.\n\nDeseja ir para as configurações agora?");
-                if (goToConfig) {
-                    if (onNavigateToProfile) {
-                        onNavigateToProfile();
-                    } else {
-                        alert("Por favor, acesse 'Meu Perfil' > 'Notas Fiscais' para configurar seus dados.");
-                    }
-                }
+            if (!config || !config.cnpj || !config.inscricao_municipal) {
+                showToast('Configuração incompleta', 'Configure CNPJ e Inscrição Municipal em Perfil > Notas Fiscais.', 'error');
+                if (onNavigateToProfile) onNavigateToProfile();
                 return;
             }
         } catch (err) {
@@ -143,18 +135,32 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             return;
         }
 
-        const confirmEmission = window.confirm("Confirma a emissão da Nota Fiscal para este cliente?");
-        if (!confirmEmission) return;
+        // Show confirmation modal instead of window.confirm
+        setShowNfseConfirm(true);
+    };
+
+    const handleConfirmEmitNFSe = async () => {
+        setShowNfseConfirm(false);
+        if (!user?.id) return;
+
+        // Build service description from items
+        const serviceDescription = items.map(i => i.description).join(', ');
 
         try {
             setIsEmitting(true);
-            const draft = await fiscalService.createInvoiceDraft(user.id, null, total, selectedClientId);
+            const draft = await fiscalService.createInvoiceDraft(user.id, null, total, selectedClientId, serviceDescription);
 
             if (draft) {
                 try {
                     const result = await fiscalService.emitNFSe(draft.id);
                     if (result.sucesso) {
-                        showToast('Nota Fiscal Emitida!', `Número: ${result.numero || 'Em processamento'}`, 'success');
+                        const nfseData = result.data || result;
+                        const numero = nfseData.numero || result.numero;
+                        if (numero) {
+                            showToast('Nota Fiscal Autorizada!', `Número: ${numero}`, 'success');
+                        } else {
+                            showToast('Nota Enviada!', 'Aguardando autorização da prefeitura. Verifique o histórico.', 'success');
+                        }
                     } else {
                         showToast('Falha na Emissão', result.erro || 'Erro desconhecido', 'error');
                     }
@@ -353,6 +359,46 @@ const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     <div className="bg-white p-6 rounded-2xl max-w-sm text-center">
                         <h3 className="font-bold text-xl mb-2">Sem créditos!</h3>
                         <button onClick={() => setShowNoCreditsWarning(false)} className="text-gray-500">Fechar</button>
+                    </div>
+                </div>
+            )}
+
+            {showNfseConfirm && selectedClient && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+                        <h3 className="font-bold text-lg text-gray-800 mb-1">Confirmar Emissão</h3>
+                        <p className="text-sm text-gray-500 mb-4">Revise os dados antes de emitir a nota fiscal.</p>
+                        <div className="bg-gray-50 rounded-xl p-4 space-y-2 mb-5 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Cliente</span>
+                                <span className="font-semibold text-gray-800">{selectedClient.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Serviços</span>
+                                <span className="font-semibold text-gray-800">{items.length} item(ns)</span>
+                            </div>
+                            <div className="flex justify-between border-t border-gray-200 pt-2 mt-2">
+                                <span className="text-gray-700 font-medium">Total</span>
+                                <span className="font-bold text-blue-600 text-base">R$ {total.toFixed(2)}</span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+                            ⚠️ A nota fiscal será enviada à prefeitura e não poderá ser editada após emissão.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowNfseConfirm(false)}
+                                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmEmitNFSe}
+                                className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                            >
+                                Emitir Nota
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

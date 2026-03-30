@@ -1,8 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
-const { signXML } = require('./signer');
-const { sendDPS } = require('./transport');
 require('dotenv').config();
 
 const app = express();
@@ -13,96 +11,140 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 const PORT = process.env.PORT || 4000;
 
-// Health check endpoint
+// ─── Auth Middleware ───────────────────────────────────────────────────────────
+async function requireAuth(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ sucesso: false, erro: 'Authorization header ausente' });
+
+    const token = authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ sucesso: false, erro: 'Bearer token ausente' });
+
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) return res.status(401).json({ sucesso: false, erro: 'Token inválido ou expirado' });
+
+    req.user = user;
+    next();
+}
+
+// ─── Health Check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Emit NFS-e endpoint
-app.post('/emit-nfse', async (req, res) => {
+// ─── Emit NFS-e ───────────────────────────────────────────────────────────────
+app.post('/emit-nfse', requireAuth, async (req, res) => {
     const { invoiceId } = req.body;
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-        return res.status(401).json({ sucesso: false, erro: 'Authorization header missing' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ sucesso: false, erro: 'Bearer token missing' });
-    }
+    const user = req.user;
 
     if (!invoiceId) {
-        return res.status(400).json({ sucesso: false, erro: 'invoiceId is required' });
+        return res.status(400).json({ sucesso: false, erro: 'invoiceId é obrigatório' });
     }
 
     try {
-        // Verify user from token
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        console.log(`[NFS-e] Processando nota ${invoiceId} para usuário ${user.id}`);
 
-        if (authError || !user) {
-            return res.status(401).json({ sucesso: false, erro: 'Invalid token' });
-        }
-
-        console.log(`[NFS-e] Processing invoice ${invoiceId} for user ${user.id}`);
-
-        // 1. Fetch Invoice Data (and verify ownership)
+        // 1. Fetch invoice (enforce ownership)
         const { data: invoice, error: invoiceError } = await supabase
             .from('nfs_e')
             .select('*, clients(*)')
             .eq('id', invoiceId)
-            .eq('user_id', user.id) // Enforce ownership
+            .eq('user_id', user.id)
             .single();
 
         if (invoiceError || !invoice) {
-            console.error('[NFS-e] Invoice fetch error:', invoiceError);
+            console.error('[NFS-e] Nota não encontrada:', invoiceError);
             return res.status(404).json({ sucesso: false, erro: 'Nota fiscal não encontrada ou acesso negado' });
         }
 
-        // Fetch fiscal_config separately
+        // Block re-emission of already authorized notes
+        if (invoice.status === 'authorized') {
+            return res.status(400).json({ sucesso: false, erro: 'Esta nota fiscal já foi autorizada. Número: ' + invoice.nfse_number });
+        }
+
+        // 2. Fetch fiscal config
         const { data: fiscalConfig, error: configError } = await supabase
             .from('fiscal_config')
             .select('*')
-            .eq('user_id', invoice.user_id)
+            .eq('user_id', user.id)
             .single();
 
         if (configError || !fiscalConfig) {
-            console.error('[NFS-e] Fiscal config not found:', configError);
+            console.error('[NFS-e] Config fiscal não encontrada:', configError);
             return res.status(400).json({ sucesso: false, erro: 'Configuração fiscal não encontrada. Configure em Perfil > Notas Fiscais.' });
         }
 
-        const config = fiscalConfig;
+        // Validate required fiscal config fields
+        if (!fiscalConfig.cnpj) {
+            return res.status(400).json({ sucesso: false, erro: 'CNPJ não configurado. Acesse Perfil > Notas Fiscais.' });
+        }
+        if (!fiscalConfig.inscricao_municipal) {
+            return res.status(400).json({ sucesso: false, erro: 'Inscrição Municipal não configurada. Acesse Perfil > Notas Fiscais.' });
+        }
+        if (!fiscalConfig.codigo_municipio) {
+            return res.status(400).json({ sucesso: false, erro: 'Código do Município não configurado. Acesse Perfil > Notas Fiscais.' });
+        }
 
-        // 2. Call Nuvem Fiscal Service
-        // Note: We skip local certificate download/signing as Nuvem Fiscal handles it (Cert must be formatted/uploaded there or we add an upload step later)
-        // For now, we assume the user configured their company on Nuvem Dashboard.
+        // 3. Auto-assign DPS number if not set
+        if (!invoice.dps_number) {
+            const { data: lastInvoice } = await supabase
+                .from('nfs_e')
+                .select('dps_number')
+                .eq('user_id', user.id)
+                .not('dps_number', 'is', null)
+                .order('dps_number', { ascending: false })
+                .limit(1)
+                .single();
 
-        // Load nuvem service dynamically or at top
+            const nextDpsNumber = (lastInvoice?.dps_number || 0) + 1;
+
+            await supabase
+                .from('nfs_e')
+                .update({ dps_number: nextDpsNumber })
+                .eq('id', invoiceId);
+
+            invoice.dps_number = nextDpsNumber;
+        }
+
+        // 4. Set status to pending before emission
+        await supabase
+            .from('nfs_e')
+            .update({ status: 'pending', updated_at: new Date().toISOString() })
+            .eq('id', invoiceId);
+
+        // 5. Call Nuvem Fiscal
         const { emitirNfse } = require('./nuvem');
+        const isProduction = fiscalConfig.environment === 'production';
+        const nuvemResponse = await emitirNfse({ invoice, config: fiscalConfig }, isProduction);
 
-        const isProduction = config.environment === 'production';
-        const nuvemResponse = await emitirNfse({ invoice, config }, isProduction);
+        console.log('[NFS-e] Resposta Nuvem Fiscal:', JSON.stringify(nuvemResponse, null, 2));
 
-        console.log('[NFS-e] Nuvem Fiscal Response:', nuvemResponse);
-
-        // 3. Update Database with Result
+        // 6. Update database with result
         const updatePayload = {
             updated_at: new Date().toISOString()
         };
 
         if (nuvemResponse.sucesso) {
             const data = nuvemResponse.data;
-            updatePayload.status = data.status === 'autorizada' ? 'authorized' : 'pending';
+            // Map Nuvem Fiscal status to internal status
+            if (data.status === 'autorizada') {
+                updatePayload.status = 'authorized';
+            } else if (data.status === 'rejeitada' || data.status === 'erro' || data.status === 'negada') {
+                updatePayload.status = 'rejected';
+                const mensagens = data.mensagens || [];
+                updatePayload.error_message = mensagens[0]?.descricao || 'NFS-e rejeitada pela prefeitura';
+            } else {
+                // processando or other - stays pending
+                updatePayload.status = 'pending';
+            }
             updatePayload.nfse_number = data.numero || null;
             updatePayload.auth_code = data.codigo_verificacao || null;
             updatePayload.url_pdf = data.link_url || null;
             updatePayload.xml_return = JSON.stringify(data);
-            // Store Nuvem Fiscal ID for status polling
             updatePayload.nuvem_id = data.id || null;
         } else {
             updatePayload.status = 'rejected';
             updatePayload.error_message = nuvemResponse.erro || 'Erro desconhecido na Nuvem Fiscal';
-            updatePayload.xml_return = JSON.stringify(nuvemResponse); // Store full error for debug
+            updatePayload.xml_return = JSON.stringify(nuvemResponse);
         }
 
         const { error: dbError } = await supabase
@@ -111,61 +153,67 @@ app.post('/emit-nfse', async (req, res) => {
             .eq('id', invoiceId);
 
         if (dbError) {
-            console.error('[NFS-e] DB Update Error:', dbError);
+            console.error('[NFS-e] Erro ao atualizar DB:', dbError);
         }
 
         return res.json(nuvemResponse);
 
     } catch (error) {
-        console.error('[NFS-e] Server Error:', error);
-        res.status(500).json({ sucesso: false, erro: error.message });
+        console.error('[NFS-e] Erro interno:', error);
+        res.status(500).json({ sucesso: false, erro: error.message || 'Erro interno do servidor' });
     }
 });
 
-// Check NFS-e status endpoint (for polling processing status)
-app.post('/check-status', async (req, res) => {
+// ─── Check NFS-e Status ────────────────────────────────────────────────────────
+app.post('/check-status', requireAuth, async (req, res) => {
     const { invoiceId } = req.body;
+    const user = req.user;
 
     if (!invoiceId) {
-        return res.status(400).json({ sucesso: false, erro: 'invoiceId is required' });
+        return res.status(400).json({ sucesso: false, erro: 'invoiceId é obrigatório' });
     }
 
     try {
-        // Fetch invoice to get Nuvem ID
+        // Fetch invoice (enforce ownership)
         const { data: invoice, error: invoiceError } = await supabase
             .from('nfs_e')
-            .select('nuvem_id, status')
+            .select('nuvem_id, status, user_id')
             .eq('id', invoiceId)
+            .eq('user_id', user.id)
             .single();
 
         if (invoiceError || !invoice) {
-            return res.status(404).json({ sucesso: false, erro: 'Nota fiscal não encontrada' });
+            return res.status(404).json({ sucesso: false, erro: 'Nota fiscal não encontrada ou acesso negado' });
         }
 
-        // If already authorized or error, return current status
-        if (invoice.status === 'authorized' || invoice.status === 'error') {
+        // If already in a final state, return current status directly
+        if (invoice.status === 'authorized' || invoice.status === 'cancelled') {
             return res.json({ sucesso: true, status: invoice.status });
         }
 
-        // If no Nuvem ID, can't check
         if (!invoice.nuvem_id) {
             return res.json({ sucesso: false, erro: 'Nota ainda não foi enviada para Nuvem Fiscal' });
         }
 
-        // Query Nuvem Fiscal for current status
+        // Fetch fiscal config to know environment
+        const { data: fiscalConfig } = await supabase
+            .from('fiscal_config')
+            .select('environment')
+            .eq('user_id', user.id)
+            .single();
+
+        const isProduction = fiscalConfig?.environment === 'production';
+
         const { consultarNfse } = require('./nuvem');
-        const consultaResponse = await consultarNfse(invoice.nuvem_id);
+        const consultaResponse = await consultarNfse(invoice.nuvem_id, isProduction);
 
         if (!consultaResponse.sucesso) {
             return res.json(consultaResponse);
         }
 
         const data = consultaResponse.data;
-        const updatePayload = {
-            updated_at: new Date().toISOString()
-        };
+        const updatePayload = { updated_at: new Date().toISOString() };
 
-        // Map Nuvem status to our status
         if (data.status === 'autorizada') {
             updatePayload.status = 'authorized';
             updatePayload.nfse_number = data.numero || null;
@@ -174,17 +222,18 @@ app.post('/check-status', async (req, res) => {
             updatePayload.xml_return = JSON.stringify(data);
         } else if (data.status === 'rejeitada' || data.status === 'erro' || data.status === 'negada') {
             updatePayload.status = 'rejected';
-            updatePayload.error_message = data.mensagens?.[0]?.descricao || 'NFS-e rejeitada pela prefeitura';
+            const mensagens = data.mensagens || [];
+            updatePayload.error_message = mensagens[0]?.descricao || 'NFS-e rejeitada pela prefeitura';
             updatePayload.xml_return = JSON.stringify(data);
         }
-        // If still processing, don't update status
 
-        await supabase
-            .from('nfs_e')
-            .update(updatePayload)
-            .eq('id', invoiceId);
+        if (Object.keys(updatePayload).length > 1) {
+            await supabase
+                .from('nfs_e')
+                .update(updatePayload)
+                .eq('id', invoiceId);
+        }
 
-        // Extract error messages if present
         const mensagens = data.mensagens || [];
         const primeiroErro = mensagens[0]?.descricao || null;
         const codigoErro = mensagens[0]?.codigo || null;
@@ -201,23 +250,12 @@ app.post('/check-status', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('[NFS-e] Check Status Error:', error);
-        res.status(500).json({ sucesso: false, erro: error.message });
+        console.error('[NFS-e] Erro ao verificar status:', error);
+        res.status(500).json({ sucesso: false, erro: error.message || 'Erro interno do servidor' });
     }
 });
 
-// Helper function
-function escapeXml(str) {
-    if (!str) return '';
-    return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-}
-
 app.listen(PORT, () => {
-    console.log(`[NFS-e] Service running on port ${PORT}`);
-    console.log(`[NFS-e] Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[NFS-e] Serviço rodando na porta ${PORT}`);
+    console.log(`[NFS-e] Ambiente: ${process.env.NODE_ENV || 'development'}`);
 });

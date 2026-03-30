@@ -28,6 +28,9 @@ export interface NFS_e {
     service_amount: number;
     issue_date: string;
     error_message?: string;
+    dps_number?: number;
+    dps_series?: string;
+    description?: string;
 }
 
 export const fiscalService = {
@@ -77,50 +80,62 @@ export const fiscalService = {
 
     // 3. Issue NFS-e (Call Node.js Microservice)
     async emitNFSe(invoiceId: string) {
-        try {
-            // Get current session token
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
 
-            if (!token) {
-                throw new Error('Usuário não autenticado');
-            }
-
-            // Use environment variable or default to localhost:4000
-            const serviceUrl = import.meta.env.VITE_NFSE_SERVICE_URL || 'http://localhost:4000';
-            const response = await fetch(`${serviceUrl}/emit-nfse`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ invoiceId })
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.erro || 'Falha ao conectar com serviço de emissão');
-            }
-
-            return result;
-
-            /* Old Edge Function Call
-            const { data, error } = await supabase.functions.invoke('emit-nfse', {
-                body: { invoiceId }
-            });
-
-            if (error) throw error;
-            return data;
-            */
-        } catch (error) {
-            console.error('Error invoking emit-nfse service:', error);
-            throw error;
+        if (!token) {
+            throw new Error('Usuário não autenticado');
         }
+
+        const serviceUrl = import.meta.env.VITE_NFSE_SERVICE_URL || 'http://localhost:4000';
+        const response = await fetch(`${serviceUrl}/emit-nfse`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ invoiceId })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.erro || 'Falha ao conectar com serviço de emissão');
+        }
+
+        return result;
+    },
+
+    // Check NFS-e processing status
+    async checkNFSeStatus(invoiceId: string) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (!token) {
+            throw new Error('Usuário não autenticado');
+        }
+
+        const serviceUrl = import.meta.env.VITE_NFSE_SERVICE_URL || 'http://localhost:4000';
+        const response = await fetch(`${serviceUrl}/check-status`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ invoiceId })
+        });
+
+        return response.json();
     },
 
     // 4. Create Invoice Draft (Prepare for emission)
-    async createInvoiceDraft(userId: string, appointmentId: string | null, serviceAmount: number, clientId?: string) {
+    async createInvoiceDraft(
+        userId: string,
+        appointmentId: string | null,
+        serviceAmount: number,
+        clientId?: string,
+        description?: string
+    ) {
         const { data, error } = await supabase
             .from('nfs_e')
             .insert({
@@ -128,6 +143,7 @@ export const fiscalService = {
                 appointment_id: appointmentId,
                 client_id: clientId,
                 service_amount: serviceAmount,
+                description: description || null,
                 status: 'draft'
             })
             .select()

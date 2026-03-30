@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { SavedDocument, DocumentFilters } from '../types/documents';
+import { fiscalService } from './fiscalService';
 
 const DOCUMENTS_KEY = 'gerente_bolso_documents';
 
@@ -41,12 +42,12 @@ export const fetchDocuments = async (userId?: string): Promise<SavedDocument[]> 
             clientId: doc.client_id,
             clientName: doc.clients?.name || 'Cliente Desconhecido',
             clientPhone: doc.clients?.phone || '',
-            documentNumber: doc.nfse_number ? `${doc.nfse_number}` : `RPS-${doc.rps_number || doc.id.slice(0, 8)}`,
+            documentNumber: doc.nfse_number ? `${doc.nfse_number}` : `RPS-${doc.dps_number || doc.id.slice(0, 8)}`,
             createdAt: doc.created_at,
-            status: doc.status === 'authorized' ? 'paid' : (doc.status || 'pending'), // Map authorized to paid for UI or keep authorized if UI supports it
-            items: doc.items || [{ description: 'Serviço Prestado', price: doc.service_amount, quantity: 1 }],
+            // Keep 'authorized' and 'rejected' statuses as-is so UI can display them properly
+            status: doc.status === 'authorized' ? 'authorized' : (doc.status === 'rejected' ? 'error' : (doc.status || 'pending')),
+            items: doc.items || [{ id: '1', description: doc.description || 'Serviço Prestado', price: doc.service_amount, quantity: 1 }],
             total: doc.service_amount,
-            note: doc.description,
             url_pdf: doc.url_pdf,
             error_message: doc.error_message
         }));
@@ -72,12 +73,7 @@ export const checkNfseStatus = async (invoiceId: string): Promise<{
     codigo_erro?: string;
 }> => {
     try {
-        const response = await fetch('http://localhost:4000/check-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ invoiceId })
-        });
-        return await response.json();
+        return await fiscalService.checkNFSeStatus(invoiceId);
     } catch (error) {
         console.error('Check status error:', error);
         return { sucesso: false, erro: 'Erro ao verificar status' };
